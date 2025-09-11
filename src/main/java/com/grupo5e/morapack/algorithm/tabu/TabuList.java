@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+/** Memoria de corto plazo: evita deshacer/rehacer lo mismo por N iteraciones. */
 public class TabuList {
     private final Map<Object, Integer> tenureMap = new HashMap<>();
     private final int tenure;
@@ -27,8 +28,7 @@ public class TabuList {
         var toRemove = new ArrayList<Object>();
         for (var e : tenureMap.entrySet()) {
             int left = e.getValue() - 1;
-            if (left <= 0) toRemove.add(e.getKey());
-            else e.setValue(left);
+            if (left <= 0) toRemove.add(e.getKey()); else e.setValue(left);
         }
         toRemove.forEach(tenureMap::remove);
     }

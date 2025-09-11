@@ -1,4 +1,4 @@
-# DP1 - GRUPO E - CASO MORA PACK
+# DP1 - GRUPO 5E - CASO MORA PACK
 
 ## Descripción del Proyecto
 
@@ -61,7 +61,7 @@ El proyecto incluye varios demos que muestran diferentes escenarios:
 
 ## Equipo
 
-**GRUPO E** - Desarrollo de Proyecto 1 (DP1)
+**GRUPO 5E** - Desarrollo de Proyecto 1 (DP1)
 
 ---
 

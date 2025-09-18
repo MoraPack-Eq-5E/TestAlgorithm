@@ -1,0 +1,59 @@
+# Archivo de pedidos del mes 1
+# Formato: dd-hh-mm-dest-###-IdClien
+# Donde:
+# - dd: día (01-31)
+# - hh: hora (00-23)
+# - mm: minutos (00-59)
+# - dest: código aeropuerto destino
+# - ###: cantidad de productos (001-999)
+# - IdClien: ID del cliente
+
+# Pedidos del día 1
+01-08-30-SVMI-150-CLI001
+01-14-15-SBBR-075-CLI002
+01-16-45-SEQM-200-CLI003
+
+# Pedidos del día 2
+02-09-45-SPIM-050-CLI001
+02-16-20-SCEL-300-CLI004
+02-18-30-SABE-125-CLI002
+
+# Pedidos del día 3
+03-07-15-SGAS-080-CLI005
+03-13-45-SUAA-250-CLI003
+03-10-30-LATI-100-CLI001
+
+# Pedidos del día 4
+04-11-00-EDDI-175-CLI006
+04-15-20-LOWW-090-CLI007
+04-19-45-EBCI-220-CLI008
+
+# Pedidos del día 5
+05-06-30-UMMS-110-CLI009
+05-12-15-LBSF-180-CLI010
+05-17-00-LKPR-140-CLI011
+
+# Pedidos del día 6
+06-08-45-SKBO-160-CLI012
+06-14-30-SEQM-095-CLI013
+06-20-15-SVMI-270-CLI014
+
+# Pedidos del día 7
+07-09-00-SBBR-085-CLI015
+07-15-45-SPIM-210-CLI016
+07-18-30-SCEL-130-CLI017
+
+# Pedidos del día 8
+08-07-15-SABE-190-CLI018
+08-13-00-SGAS-065-CLI019
+08-16-45-SUAA-240-CLI020
+
+# Pedidos del día 9
+09-10-30-LATI-120-CLI021
+09-14-15-EDDI-200-CLI022
+09-19-00-LOWW-075-CLI023
+
+# Pedidos del día 10
+10-06-45-EBCI-155-CLI024
+10-12-30-UMMS-185-CLI025
+10-17-15-LBSF-105-CLI026

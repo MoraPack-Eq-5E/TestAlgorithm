@@ -22,7 +22,18 @@ public enum EstadoGeneral {
     PAUSADO("Temporalmente pausado"),
     EN_ESPERA("En espera de recursos o condiciones"),
     VALIDANDO("En proceso de validación"),
-    RECHAZADO("Rechazado por no cumplir restricciones");
+    RECHAZADO("Rechazado por no cumplir restricciones"),
+    
+    // Estados específicos para vuelos (nuevas especificaciones)
+    DEMORADO("Vuelo con demora de 3 horas"),
+    CANCELADO_PROGRAMADO("Vuelo cancelado programadamente"),
+    CANCELADO_MANUAL("Vuelo cancelado manualmente"),
+    
+    // Estados específicos para productos/paquetes (nuevas especificaciones)
+    REASIGNABLE("Producto puede ser reasignado"),
+    NO_REASIGNABLE("Producto no puede ser reasignado"),
+    EN_ALMACEN_PASO("En almacén de paso (reasignable)"),
+    EN_ALMACEN_ENTREGA("En almacén de entrega (no reasignable)");
     
     private final String descripcion;
     
@@ -53,7 +64,29 @@ public enum EstadoGeneral {
      * Verifica si el estado representa un problema o fallo
      */
     public boolean esProblematico() {
-        return this == RETRASADO || this == CANCELADO || this == FALLIDO || this == RECHAZADO;
+        return this == RETRASADO || this == CANCELADO || this == FALLIDO || this == RECHAZADO ||
+               this == DEMORADO || this == CANCELADO_PROGRAMADO || this == CANCELADO_MANUAL;
+    }
+    
+    /**
+     * Verifica si el estado permite reasignación de productos
+     */
+    public boolean permiteReasignacion() {
+        return this == REASIGNABLE || this == EN_ALMACEN_PASO || this == EN_TRANSITO;
+    }
+    
+    /**
+     * Verifica si el estado es de vuelo cancelado
+     */
+    public boolean esVueloCancelado() {
+        return this == CANCELADO_PROGRAMADO || this == CANCELADO_MANUAL;
+    }
+    
+    /**
+     * Verifica si el estado es de vuelo demorado
+     */
+    public boolean esVueloDemorado() {
+        return this == DEMORADO;
     }
     
     /**

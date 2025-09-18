@@ -57,7 +57,10 @@ public class MoraPackDataLoader {
                 }
             }
             
-            System.out.println("Cargados " + aeropuertos.size() + " aeropuertos desde " + AEROPUERTOS_FILE);
+            // Log only if verbose logging is enabled
+            if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                System.out.println("Cargados " + aeropuertos.size() + " aeropuertos desde " + AEROPUERTOS_FILE);
+            }
             
         } catch (IOException e) {
             System.err.println("Error al cargar aeropuertos: " + e.getMessage());
@@ -88,7 +91,10 @@ public class MoraPackDataLoader {
                 }
             }
             
-            System.out.println("Cargados " + vuelos.size() + " vuelos desde " + VUELOS_FILE);
+            // Log only if verbose logging is enabled
+            if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                System.out.println("Cargados " + vuelos.size() + " vuelos desde " + VUELOS_FILE);
+            }
             
         } catch (IOException e) {
             System.err.println("Error al cargar vuelos: " + e.getMessage());
@@ -279,7 +285,9 @@ public class MoraPackDataLoader {
         aeropuertos.add(new Aeropuerto("EDDI", "Berlín", "Alemania", "Europa", 52.5, 13.4, 480, false));
         aeropuertos.add(new Aeropuerto("VIDP", "Delhi", "India", "Asia", 28.6, 77.1, 480, false));
         
-        System.out.println("Usando " + aeropuertos.size() + " aeropuertos de respaldo");
+        if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+            System.out.println("Usando " + aeropuertos.size() + " aeropuertos de respaldo");
+        }
         return aeropuertos;
     }
     
@@ -300,7 +308,9 @@ public class MoraPackDataLoader {
             }
         }
         
-        System.out.println("Usando " + vuelos.size() + " vuelos de respaldo");
+        if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+            System.out.println("Usando " + vuelos.size() + " vuelos de respaldo");
+        }
         return vuelos;
     }
     

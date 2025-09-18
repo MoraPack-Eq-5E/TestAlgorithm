@@ -41,11 +41,14 @@ public class ConstruccionInteligente implements OperadorConstruccion {
                 nuevaSolucion.recalcularMetricas();
             } else {
                 paquetesNoRuteados++;
-                System.out.println("⚠️  No se pudo rutear " + paqueteId + " respetando capacidades");
+                // Log only if verbose logging is enabled
+                if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                    System.out.println("⚠️  No se pudo rutear " + paqueteId + " respetando capacidades");
+                }
             }
         }
         
-        if (paquetesNoRuteados > 0) {
+        if (paquetesNoRuteados > 0 && com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
             System.out.println("📊 Paquetes no ruteados por saturación: " + paquetesNoRuteados + "/" + paquetesRemovidos.size());
         }
         
@@ -75,7 +78,9 @@ public class ConstruccionInteligente implements OperadorConstruccion {
             Ruta rutaConConexion = crearRutaConConexiones(rutaBFS, contexto);
             
             if (rutaConConexion != null && validador.esRutaFactible(paqueteId, rutaConConexion, solucionActual)) {
-                System.out.println("🔀 " + paqueteId + ": Ruta con conexión " + origen + " → " + rutaBFS.get(1) + " → " + destino);
+                if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                    System.out.println("🔀 " + paqueteId + ": Ruta con conexión " + origen + " → " + rutaBFS.get(1) + " → " + destino);
+                }
                 return rutaConConexion;
             }
         }
@@ -86,7 +91,9 @@ public class ConstruccionInteligente implements OperadorConstruccion {
             Ruta rutaAlternativa = crearRutaViaTramite(origen, intermedio, destino, contexto);
             
             if (rutaAlternativa != null && validador.esRutaFactible(paqueteId, rutaAlternativa, solucionActual)) {
-                System.out.println("🛤️  " + paqueteId + ": Ruta alternativa " + origen + " → " + intermedio + " → " + destino);
+                if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                    System.out.println("🛤️  " + paqueteId + ": Ruta alternativa " + origen + " → " + intermedio + " → " + destino);
+                }
                 return rutaAlternativa;
             }
         }

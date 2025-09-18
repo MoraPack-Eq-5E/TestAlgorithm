@@ -18,7 +18,7 @@ import java.util.*;
  */
 public class DemoALNSRealista {
     
-    private static final boolean ENABLE_VERBOSE_DEBUG = false; // Cambiar a true para más detalles
+    private static final boolean ENABLE_VERBOSE_DEBUG = false; // Production setting: verbose logging disabled
     
     public static void main(String[] args) {
         System.out.println("🚀 DEMO REALISTA: ALNS Mejorado para MoraPack");

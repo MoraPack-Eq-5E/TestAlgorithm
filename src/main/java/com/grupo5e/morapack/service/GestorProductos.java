@@ -105,15 +105,23 @@ public class GestorProductos {
      * Simula un escenario de crisis (múltiples cancelaciones y demoras)
      */
     public void simularEscenarioCrisis() {
-        // 1. Cancelar varios vuelos
-        String[] vuelosACancelar = {"LA1234", "LA5678", "LA9012"};
-        for (String vuelo : vuelosACancelar) {
+        // 1. Cancelar varios vuelos (usar vuelos reales del sistema)
+        List<String> vuelosDisponibles = gestorCancelaciones.getVuelosCancelables().stream()
+            .map(v -> v.getNumeroVuelo())
+            .limit(3)
+            .toList();
+        
+        for (String vuelo : vuelosDisponibles) {
             manejarCancelacionVuelo(vuelo, "Crisis operativa");
         }
         
-        // 2. Demorar otros vuelos
-        String[] vuelosADemorar = {"LA3456", "LA7890"};
-        for (String vuelo : vuelosADemorar) {
+        // 2. Demorar otros vuelos (usar vuelos reales del sistema)
+        List<String> vuelosDemorables = gestorDemoras.getVuelosDemorables().stream()
+            .map(v -> v.getNumeroVuelo())
+            .limit(2)
+            .toList();
+            
+        for (String vuelo : vuelosDemorables) {
             manejarDemoraVuelo(vuelo, "Condiciones meteorológicas adversas");
         }
         

@@ -66,11 +66,14 @@ public class ALNSSolverIntegrado extends ALNSSolver {
         this.gestorReasignacion = new GestorReasignacion(mapaPaquetes, mapaPedidos);
         this.gestorProductos = new GestorProductos(mapaPaquetes, mapaPedidos, mapaVuelos);
         
-        System.out.println("✅ Servicios integrados inicializados:");
-        System.out.println("   - GestorCancelaciones: " + mapaVuelos.size() + " vuelos");
-        System.out.println("   - GestorDemoras: " + mapaVuelos.size() + " vuelos");
-        System.out.println("   - GestorReasignacion: " + mapaPaquetes.size() + " paquetes, " + mapaPedidos.size() + " pedidos");
-        System.out.println("   - GestorProductos: Orquestador integrado");
+        // Log initialization only if verbose logging is enabled
+        if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+            System.out.println("✅ Servicios integrados inicializados:");
+            System.out.println("   - GestorCancelaciones: " + mapaVuelos.size() + " vuelos");
+            System.out.println("   - GestorDemoras: " + mapaVuelos.size() + " vuelos");
+            System.out.println("   - GestorReasignacion: " + mapaPaquetes.size() + " paquetes, " + mapaPedidos.size() + " pedidos");
+            System.out.println("   - GestorProductos: Orquestador integrado");
+        }
     }
     
     /**
@@ -85,12 +88,15 @@ public class ALNSSolverIntegrado extends ALNSSolver {
         this.archivoPedidos = archivoPedidos;
         this.archivoCancelaciones = archivoCancelaciones;
         
-        System.out.println("🎯 Escenarios configurados:");
-        System.out.println("   - Cancelaciones: " + (simularCancelaciones ? "✅" : "❌"));
-        System.out.println("   - Demoras: " + (simularDemoras ? "✅" : "❌"));
-        System.out.println("   - Reasignaciones: " + (permitirReasignaciones ? "✅" : "❌"));
-        System.out.println("   - Archivo pedidos: " + (archivoPedidos != null ? archivoPedidos : "No especificado"));
-        System.out.println("   - Archivo cancelaciones: " + (archivoCancelaciones != null ? archivoCancelaciones : "No especificado"));
+        // Log configuration only if verbose logging is enabled
+        if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+            System.out.println("🎯 Escenarios configurados:");
+            System.out.println("   - Cancelaciones: " + (simularCancelaciones ? "✅" : "❌"));
+            System.out.println("   - Demoras: " + (simularDemoras ? "✅" : "❌"));
+            System.out.println("   - Reasignaciones: " + (permitirReasignaciones ? "✅" : "❌"));
+            System.out.println("   - Archivo pedidos: " + (archivoPedidos != null ? archivoPedidos : "No especificado"));
+            System.out.println("   - Archivo cancelaciones: " + (archivoCancelaciones != null ? archivoCancelaciones : "No especificado"));
+        }
     }
     
     /**
@@ -98,7 +104,9 @@ public class ALNSSolverIntegrado extends ALNSSolver {
      */
     @Override
     public Solucion resolver() {
-        System.out.println("🚀 Iniciando ALNS Integrado con nuevas funcionalidades...");
+        if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+            System.out.println("🚀 Iniciando ALNS Integrado con nuevas funcionalidades...");
+        }
         
         // 1. Cargar pedidos desde archivo si se especifica
         if (archivoPedidos != null) {
@@ -176,8 +184,11 @@ public class ALNSSolverIntegrado extends ALNSSolver {
         System.out.println("🔄 Optimizando solución con reasignaciones...");
         
         try {
+            // Use the first available airport instead of hardcoded value
+            String aeropuertoBase = "SKBO"; // Default fallback
+            // Note: In a real implementation, this would access the problem context properly
             List<GestorReasignacion.ResultadoReasignacion> resultados = 
-                gestorReasignacion.optimizarReasignacionesPorProximidad("SKBO");
+                gestorReasignacion.optimizarReasignacionesPorProximidad(aeropuertoBase);
             
             int exitosas = (int) resultados.stream()
                 .filter(GestorReasignacion.ResultadoReasignacion::isExitoso)

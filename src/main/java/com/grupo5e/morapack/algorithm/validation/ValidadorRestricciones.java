@@ -2,7 +2,6 @@ package com.grupo5e.morapack.algorithm.validation;
 
 import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.core.enums.TipoViolacion;
-import com.grupo5e.morapack.core.constants.ConstantesMoraPack;
 import java.util.*;
 
 /**
@@ -13,14 +12,12 @@ public class ValidadorRestricciones {
     
     private final Map<String, Aeropuerto> aeropuertos;
     private final Map<String, Vuelo> vuelos;
-    private final Set<Continente> continentes;
     private final Map<String, String> aeropuertoAContinente;
     
     public ValidadorRestricciones(List<Aeropuerto> listaAeropuertos, List<Vuelo> listaVuelos, 
                                   Set<Continente> continentes) {
         this.aeropuertos = new HashMap<>();
         this.vuelos = new HashMap<>();
-        this.continentes = continentes;
         this.aeropuertoAContinente = new HashMap<>();
         
         // Indexar aeropuertos

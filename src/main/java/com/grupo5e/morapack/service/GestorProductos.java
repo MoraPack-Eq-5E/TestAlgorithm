@@ -33,14 +33,11 @@ public class GestorProductos {
      */
     public List<GestorReasignacion.ResultadoReasignacion> manejarCancelacionVuelo(String numeroVuelo, 
                                                                                  String motivo) {
-        System.out.println("🛫 Manejando cancelación de vuelo: " + numeroVuelo);
-        
         // 1. Cancelar el vuelo
         GestorCancelaciones.ResultadoCancelacion resultadoCancelacion = 
             gestorCancelaciones.cancelarProgramado(numeroVuelo, motivo);
         
         if (!resultadoCancelacion.isExitoso()) {
-            System.out.println("❌ Error al cancelar vuelo: " + resultadoCancelacion.getMensaje());
             return Arrays.asList(new GestorReasignacion.ResultadoReasignacion(false, 
                 "Error al cancelar vuelo: " + resultadoCancelacion.getMensaje()));
         }
@@ -54,7 +51,6 @@ public class GestorProductos {
                 "PED_EMERGENCIA"
             );
         
-        System.out.println("✅ Cancelación y reasignación completadas");
         return resultadosReasignacion;
     }
     
@@ -62,14 +58,11 @@ public class GestorProductos {
      * Maneja el impacto de una demora de vuelo en los productos
      */
     public List<GestorDemoras.ResultadoDemora> manejarDemoraVuelo(String numeroVuelo, String motivo) {
-        System.out.println("⏰ Manejando demora de vuelo: " + numeroVuelo);
-        
         // 1. Aplicar demora al vuelo
         GestorDemoras.ResultadoDemora resultadoDemora = 
             gestorDemoras.aplicarDemora(numeroVuelo, motivo);
         
         if (!resultadoDemora.isExitoso()) {
-            System.out.println("❌ Error al aplicar demora: " + resultadoDemora.getMensaje());
             return Arrays.asList(resultadoDemora);
         }
         
@@ -81,10 +74,8 @@ public class GestorProductos {
         
         for (Paquete producto : productosAfectados) {
             producto.setEstado(EstadoGeneral.DEMORADO);
-            System.out.println("   Producto " + producto.getId() + " marcado como demorado");
         }
         
-        System.out.println("✅ Demora aplicada a " + productosAfectados.size() + " productos");
         return Arrays.asList(resultadoDemora);
     }
     
@@ -92,7 +83,7 @@ public class GestorProductos {
      * Optimiza la distribución de productos por proximidad geográfica
      */
     public List<GestorReasignacion.ResultadoReasignacion> optimizarDistribucion() {
-        System.out.println("🌍 Optimizando distribución de productos...");
+        // Optimizando distribución de productos
         
         List<GestorReasignacion.ResultadoReasignacion> resultados = new ArrayList<>();
         
@@ -106,11 +97,7 @@ public class GestorProductos {
             resultados.addAll(resultadosAeropuerto);
         }
         
-        int exitosas = (int) resultados.stream()
-            .filter(GestorReasignacion.ResultadoReasignacion::isExitoso)
-            .count();
-        
-        System.out.println("✅ Optimización completada: " + exitosas + "/" + resultados.size() + " exitosas");
+        // Optimización completada
         return resultados;
     }
     
@@ -118,9 +105,6 @@ public class GestorProductos {
      * Simula un escenario de crisis (múltiples cancelaciones y demoras)
      */
     public void simularEscenarioCrisis() {
-        System.out.println("🚨 SIMULANDO ESCENARIO DE CRISIS");
-        System.out.println("=" .repeat(50));
-        
         // 1. Cancelar varios vuelos
         String[] vuelosACancelar = {"LA1234", "LA5678", "LA9012"};
         for (String vuelo : vuelosACancelar) {
@@ -135,8 +119,6 @@ public class GestorProductos {
         
         // 3. Optimizar distribución
         optimizarDistribucion();
-        
-        System.out.println("✅ Escenario de crisis simulado exitosamente");
     }
     
     /**
@@ -163,33 +145,7 @@ public class GestorProductos {
      * Genera reporte consolidado del sistema
      */
     public void generarReporteConsolidado() {
-        System.out.println("\n📊 REPORTE CONSOLIDADO DEL SISTEMA");
-        System.out.println("=" .repeat(80));
-        
-        EstadisticasConsolidadas stats = getEstadisticasConsolidadas();
-        
-        System.out.println("📈 Resumen General:");
-        System.out.println("   Total de productos: " + stats.getTotalProductos());
-        System.out.println("   Total de pedidos: " + stats.getTotalPedidos());
-        System.out.println("   Productos reasignables: " + stats.getStatsReasignacion().getPaquetesReasignables());
-        System.out.println("   Cancelaciones totales: " + stats.getStatsCancelaciones().getTotalCancelaciones());
-        System.out.println("   Demoras totales: " + stats.getStatsDemoras().getTotalDemoras());
-        
-        System.out.println("\n🔄 Reasignaciones:");
-        System.out.println("   Total: " + stats.getStatsReasignacion().getTotalReasignaciones());
-        System.out.println("   Por ubicación: " + stats.getStatsReasignacion().getReasignacionesPorUbicacion());
-        
-        System.out.println("\n🛫 Cancelaciones:");
-        System.out.println("   Manuales: " + stats.getStatsCancelaciones().getCancelacionesManuales());
-        System.out.println("   Programadas: " + stats.getStatsCancelaciones().getCancelacionesProgramadas());
-        System.out.println("   Paquetes afectados: " + stats.getStatsCancelaciones().getTotalPaquetesAfectados());
-        
-        System.out.println("\n⏰ Demoras:");
-        System.out.println("   Vuelos con demora: " + stats.getStatsDemoras().getVuelosConDemora());
-        System.out.println("   Promedio horas: " + String.format("%.1f", stats.getStatsDemoras().getPromedioHorasDemora()));
-        
-        // Reportes individuales
-        System.out.println("\n" + "=" .repeat(80));
+        // Generar reportes individuales
         gestorReasignacion.generarReporte();
         gestorCancelaciones.generarReporte();
         gestorDemoras.generarReporte();

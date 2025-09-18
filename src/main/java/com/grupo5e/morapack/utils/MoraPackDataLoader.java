@@ -1,7 +1,6 @@
 package com.grupo5e.morapack.utils;
 
 import com.grupo5e.morapack.core.model.*;
-import com.grupo5e.morapack.core.enums.TipoVuelo;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;

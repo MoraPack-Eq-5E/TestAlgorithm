@@ -4,7 +4,6 @@ import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.algorithm.alns.operators.OperadorConstruccion;
 import com.grupo5e.morapack.algorithm.alns.ContextoProblema;
 import com.grupo5e.morapack.algorithm.validation.ValidadorRestricciones;
-import com.grupo5e.morapack.core.constants.ConstantesMoraPack;
 import java.util.*;
 
 /**
@@ -138,7 +137,6 @@ public class ConstruccionInteligente implements OperadorConstruccion {
             return null;
         }
         
-        List<SegmentoRuta> segmentos = new ArrayList<>();
         
         Ruta ruta = new Ruta("ruta_tramite_" + System.currentTimeMillis(), "temp_paquete");
         
@@ -183,12 +181,6 @@ public class ConstruccionInteligente implements OperadorConstruccion {
         return viables;
     }
     
-    private double calcularCostoVuelo(Vuelo vuelo) {
-        // Usar constantes de MoraPack
-        return vuelo.isMismoContinente() ? 
-            ConstantesMoraPack.COSTO_BASE_VUELO_MISMO_CONTINENTE : 
-            ConstantesMoraPack.COSTO_BASE_VUELO_DISTINTO_CONTINENTE;
-    }
     
     @Override
     public String getNombre() {

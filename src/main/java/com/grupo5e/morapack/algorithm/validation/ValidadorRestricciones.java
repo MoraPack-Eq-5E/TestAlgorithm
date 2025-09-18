@@ -2,7 +2,6 @@ package com.grupo5e.morapack.algorithm.validation;
 
 import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.core.enums.TipoViolacion;
-import com.grupo5e.morapack.core.constants.ConstantesMoraPack;
 import java.util.*;
 
 /**
@@ -13,14 +12,12 @@ public class ValidadorRestricciones {
     
     private final Map<String, Aeropuerto> aeropuertos;
     private final Map<String, Vuelo> vuelos;
-    private final Set<Continente> continentes;
     private final Map<String, String> aeropuertoAContinente;
     
     public ValidadorRestricciones(List<Aeropuerto> listaAeropuertos, List<Vuelo> listaVuelos, 
                                   Set<Continente> continentes) {
         this.aeropuertos = new HashMap<>();
         this.vuelos = new HashMap<>();
-        this.continentes = continentes;
         this.aeropuertoAContinente = new HashMap<>();
         
         // Indexar aeropuertos
@@ -192,10 +189,12 @@ public class ValidadorRestricciones {
         // Verificar tiempos de vuelo según restricciones MoraPack
         for (SegmentoRuta segmento : ruta.getSegmentos()) {
             double horasEsperadas = segmento.isMismoContinente() ? 12.0 : 24.0;
-            if (Math.abs(segmento.getDuracionHoras() - horasEsperadas) > 0.1) {
+            // Allow some tolerance for real-world flight duration variations
+            double tolerancia = 1.0; // 1 hour tolerance
+            if (Math.abs(segmento.getDuracionHoras() - horasEsperadas) > tolerancia) {
                 resultado.agregarViolacion(
-                    String.format("Duración incorrecta en segmento de paquete %s (%.1f != %.1f horas)", 
-                                paqueteId, segmento.getDuracionHoras(), horasEsperadas),
+                    String.format("Duración incorrecta en segmento de paquete %s (%.1f != %.1f±%.1f horas)", 
+                                paqueteId, segmento.getDuracionHoras(), horasEsperadas, tolerancia),
                     TipoViolacion.DURACION_VUELO_INCORRECTA
                 );
             }

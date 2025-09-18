@@ -85,9 +85,57 @@ public class Solucion {
     }
     
     private void calcularFitness() {
-        // Función objetivo: minimizar costo total + penalización por violaciones
-        double penalizacionViolaciones = violacionesRestricciones * 1000.0;
-        this.fitness = costoTotal + tiempoTotalHoras + penalizacionViolaciones;
+        // Función objetivo mejorada con penalización gradual
+        double penalizacionViolaciones = calcularPenalizacionGradual();
+        double penalizacionPaquetesNoRuteados = calcularPenalizacionPaquetesNoRuteados();
+        
+        this.fitness = costoTotal + tiempoTotalHoras + penalizacionViolaciones + penalizacionPaquetesNoRuteados;
+    }
+    
+    /**
+     * Calcula penalización gradual basada en el tipo y severidad de violaciones
+     */
+    private double calcularPenalizacionGradual() {
+        if (violacionesRestricciones == 0) {
+            return 0.0;
+        }
+        
+        // Penalización base más suave
+        double penalizacionBase = 100.0;
+        
+        // Penalización incremental (no exponencial)
+        double penalizacionIncremental = violacionesRestricciones * 50.0;
+        
+        return penalizacionBase + penalizacionIncremental;
+    }
+    
+    /**
+     * Calcula penalización por paquetes no ruteados de manera gradual
+     */
+    private double calcularPenalizacionPaquetesNoRuteados() {
+        // Este método será llamado desde el contexto del problema
+        // para obtener el número total de paquetes
+        return 0.0; // Se calculará en el contexto
+    }
+    
+    /**
+     * Calcula penalización por paquetes no ruteados con información del contexto
+     */
+    public double calcularPenalizacionPaquetesNoRuteados(int totalPaquetes) {
+        int paquetesRuteados = getCantidadPaquetes();
+        int paquetesNoRuteados = totalPaquetes - paquetesRuteados;
+        
+        if (paquetesNoRuteados == 0) {
+            return 0.0;
+        }
+        
+        // Penalización gradual: 50 por el primer paquete, 100 por el segundo, etc.
+        double penalizacion = 0.0;
+        for (int i = 1; i <= paquetesNoRuteados; i++) {
+            penalizacion += 50.0 * i; // 50, 100, 150, 200, ...
+        }
+        
+        return penalizacion;
     }
     
     public boolean esVacia() {

@@ -4,7 +4,6 @@ import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.algorithm.alns.operators.OperadorConstruccion;
 import com.grupo5e.morapack.algorithm.alns.ContextoProblema;
 import com.grupo5e.morapack.algorithm.validation.ValidadorRestricciones;
-import com.grupo5e.morapack.core.constants.ConstantesMoraPack;
 import java.util.*;
 
 /**
@@ -42,11 +41,14 @@ public class ConstruccionInteligente implements OperadorConstruccion {
                 nuevaSolucion.recalcularMetricas();
             } else {
                 paquetesNoRuteados++;
-                System.out.println("⚠️  No se pudo rutear " + paqueteId + " respetando capacidades");
+                // Log only if verbose logging is enabled
+                if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                    System.out.println("⚠️  No se pudo rutear " + paqueteId + " respetando capacidades");
+                }
             }
         }
         
-        if (paquetesNoRuteados > 0) {
+        if (paquetesNoRuteados > 0 && com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
             System.out.println("📊 Paquetes no ruteados por saturación: " + paquetesNoRuteados + "/" + paquetesRemovidos.size());
         }
         
@@ -76,7 +78,9 @@ public class ConstruccionInteligente implements OperadorConstruccion {
             Ruta rutaConConexion = crearRutaConConexiones(rutaBFS, contexto);
             
             if (rutaConConexion != null && validador.esRutaFactible(paqueteId, rutaConConexion, solucionActual)) {
-                System.out.println("🔀 " + paqueteId + ": Ruta con conexión " + origen + " → " + rutaBFS.get(1) + " → " + destino);
+                if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                    System.out.println("🔀 " + paqueteId + ": Ruta con conexión " + origen + " → " + rutaBFS.get(1) + " → " + destino);
+                }
                 return rutaConConexion;
             }
         }
@@ -87,7 +91,9 @@ public class ConstruccionInteligente implements OperadorConstruccion {
             Ruta rutaAlternativa = crearRutaViaTramite(origen, intermedio, destino, contexto);
             
             if (rutaAlternativa != null && validador.esRutaFactible(paqueteId, rutaAlternativa, solucionActual)) {
-                System.out.println("🛤️  " + paqueteId + ": Ruta alternativa " + origen + " → " + intermedio + " → " + destino);
+                if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                    System.out.println("🛤️  " + paqueteId + ": Ruta alternativa " + origen + " → " + intermedio + " → " + destino);
+                }
                 return rutaAlternativa;
             }
         }
@@ -138,7 +144,6 @@ public class ConstruccionInteligente implements OperadorConstruccion {
             return null;
         }
         
-        List<SegmentoRuta> segmentos = new ArrayList<>();
         
         Ruta ruta = new Ruta("ruta_tramite_" + System.currentTimeMillis(), "temp_paquete");
         
@@ -183,12 +188,6 @@ public class ConstruccionInteligente implements OperadorConstruccion {
         return viables;
     }
     
-    private double calcularCostoVuelo(Vuelo vuelo) {
-        // Usar constantes de MoraPack
-        return vuelo.isMismoContinente() ? 
-            ConstantesMoraPack.COSTO_BASE_VUELO_MISMO_CONTINENTE : 
-            ConstantesMoraPack.COSTO_BASE_VUELO_DISTINTO_CONTINENTE;
-    }
     
     @Override
     public String getNombre() {

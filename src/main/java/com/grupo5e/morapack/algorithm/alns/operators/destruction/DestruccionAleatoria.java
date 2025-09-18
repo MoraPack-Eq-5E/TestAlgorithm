@@ -5,7 +5,6 @@ import com.grupo5e.morapack.algorithm.alns.operators.OperadorDestruccion;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 
 /**
  * Operador de destrucción que remueve paquetes de manera aleatoria.

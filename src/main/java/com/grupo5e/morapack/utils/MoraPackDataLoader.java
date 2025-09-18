@@ -18,6 +18,7 @@ public class MoraPackDataLoader {
     
     private static final String AEROPUERTOS_FILE = "data/aeropuertosinfo.txt";
     private static final String VUELOS_FILE = "data/vuelos.txt";
+    private static final String DATOS_PRUEBA_FILE = "data/datos_prueba_completos.txt";
     
     // Mapeo de continentes según los datos proporcionados
     private static final Map<String, String> CONTINENTE_MAPPING = Map.of(
@@ -345,5 +346,269 @@ public class MoraPackDataLoader {
         System.out.println("  - Capacidad mínima: " + capacidadMinima + " paquetes");
         System.out.println("  - Capacidad máxima: " + capacidadMaxima + " paquetes");
         System.out.println("  - Capacidad promedio: " + String.format("%.1f", capacidadPromedio) + " paquetes");
+    }
+    
+    /**
+     * Carga datos de prueba desde el archivo consolidado
+     */
+    public static DatosPrueba cargarDatosPrueba() {
+        List<Paquete> paquetes = new ArrayList<>();
+        List<Cliente> clientes = new ArrayList<>();
+        List<Pedido> pedidos = new ArrayList<>();
+        List<String> cancelaciones = new ArrayList<>();
+        List<String> demoras = new ArrayList<>();
+        
+        try {
+            List<String> lineas = Files.readAllLines(Paths.get(DATOS_PRUEBA_FILE));
+            
+            for (String linea : lineas) {
+                linea = linea.trim();
+                if (linea.isEmpty() || linea.startsWith("#")) {
+                    continue; // Saltar líneas vacías y comentarios
+                }
+                
+                String[] partes = linea.split("\\|");
+                if (partes.length < 2) {
+                    continue;
+                }
+                
+                String tipo = partes[0].trim();
+                
+                switch (tipo) {
+                    case "PKG":
+                        Paquete paquete = parsearPaquete(partes);
+                        if (paquete != null) {
+                            paquetes.add(paquete);
+                        }
+                        break;
+                    case "CLI":
+                        Cliente cliente = parsearCliente(partes);
+                        if (cliente != null) {
+                            clientes.add(cliente);
+                        }
+                        break;
+                    case "PED":
+                        Pedido pedido = parsearPedido(partes);
+                        if (pedido != null) {
+                            pedidos.add(pedido);
+                        }
+                        break;
+                    case "CAN":
+                        if (partes.length >= 2) {
+                            cancelaciones.add(partes[1].trim());
+                        }
+                        break;
+                    case "DEM":
+                        if (partes.length >= 2) {
+                            demoras.add(partes[1].trim());
+                        }
+                        break;
+                }
+            }
+            
+            if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                System.out.println("Cargados datos de prueba desde " + DATOS_PRUEBA_FILE);
+                System.out.println("  - Paquetes: " + paquetes.size());
+                System.out.println("  - Clientes: " + clientes.size());
+                System.out.println("  - Pedidos: " + pedidos.size());
+                System.out.println("  - Cancelaciones: " + cancelaciones.size());
+                System.out.println("  - Demoras: " + demoras.size());
+            }
+            
+        } catch (IOException e) {
+            System.err.println("Error al cargar datos de prueba: " + e.getMessage());
+            // Crear datos de respaldo
+            return crearDatosPruebaRespaldo();
+        }
+        
+        return new DatosPrueba(paquetes, clientes, pedidos, cancelaciones, demoras);
+    }
+    
+    private static Paquete parsearPaquete(String[] partes) {
+        try {
+            if (partes.length < 5) {
+                return null;
+            }
+            
+            String id = partes[1].trim();
+            String origen = partes[2].trim();
+            String destino = partes[3].trim();
+            String clienteId = partes[4].trim();
+            String prioridadStr = partes.length > 5 ? partes[5].trim() : "NORMAL";
+            
+            Paquete paquete = new Paquete(id, origen, destino, clienteId);
+            
+            // Mapear prioridad
+            switch (prioridadStr.toUpperCase()) {
+                case "ALTA":
+                    paquete.setPrioridad(1);
+                    break;
+                case "MEDIA":
+                    paquete.setPrioridad(2);
+                    break;
+                case "BAJA":
+                    paquete.setPrioridad(3);
+                    break;
+                default:
+                    paquete.setPrioridad(2); // NORMAL = MEDIA
+                    break;
+            }
+            
+            // Establecer fecha límite basada en prioridad
+            java.time.LocalDateTime fechaLimite = java.time.LocalDateTime.now();
+            switch (paquete.getPrioridad()) {
+                case 1: // ALTA
+                    fechaLimite = fechaLimite.plusHours(12);
+                    break;
+                case 2: // MEDIA
+                    fechaLimite = fechaLimite.plusDays(2);
+                    break;
+                case 3: // BAJA
+                    fechaLimite = fechaLimite.plusDays(5);
+                    break;
+            }
+            paquete.setFechaLimiteEntrega(fechaLimite);
+            
+            return paquete;
+            
+        } catch (Exception e) {
+            System.err.println("Error al parsear paquete: " + String.join("|", partes) + " - " + e.getMessage());
+            return null;
+        }
+    }
+    
+    private static Cliente parsearCliente(String[] partes) {
+        try {
+            if (partes.length < 4) {
+                return null;
+            }
+            
+            String id = partes[1].trim();
+            String nombre = partes[2].trim();
+            String tipoStr = partes[3].trim();
+            
+            // Crear cliente con email por defecto
+            String email = id.toLowerCase() + "@morapack.com";
+            Cliente cliente = new Cliente(id, nombre, email, "SPIM"); // Aeropuerto por defecto
+            
+            // Configurar VIP basado en el tipo
+            boolean esVIP = "VIP".equalsIgnoreCase(tipoStr) || "PREMIUM".equalsIgnoreCase(tipoStr);
+            cliente.setClienteVIP(esVIP);
+            
+            return cliente;
+            
+        } catch (Exception e) {
+            System.err.println("Error al parsear cliente: " + String.join("|", partes) + " - " + e.getMessage());
+            return null;
+        }
+    }
+    
+    private static Pedido parsearPedido(String[] partes) {
+        try {
+            if (partes.length < 5) {
+                return null;
+            }
+            
+            String id = partes[1].trim();
+            String clienteId = partes[2].trim();
+            String paqueteId = partes[3].trim();
+            String urgenciaStr = partes[4].trim();
+            
+            // Mapear urgencia a prioridad (1=alta, 2=media, 3=baja)
+            int prioridad;
+            switch (urgenciaStr.toUpperCase()) {
+                case "URGENTE":
+                    prioridad = 1;
+                    break;
+                case "NORMAL":
+                    prioridad = 2;
+                    break;
+                case "BAJA":
+                    prioridad = 3;
+                    break;
+                default:
+                    prioridad = 2; // NORMAL
+                    break;
+            }
+            
+            // Crear pedido con aeropuerto destino por defecto
+            Pedido pedido = new Pedido(id, clienteId, "SPIM", 1); // 1 producto por defecto
+            pedido.setPrioridadPedido(prioridad);
+            pedido.agregarPaquete(paqueteId);
+            
+            return pedido;
+            
+        } catch (Exception e) {
+            System.err.println("Error al parsear pedido: " + String.join("|", partes) + " - " + e.getMessage());
+            return null;
+        }
+    }
+    
+    private static DatosPrueba crearDatosPruebaRespaldo() {
+        List<Paquete> paquetes = new ArrayList<>();
+        List<Cliente> clientes = new ArrayList<>();
+        List<Pedido> pedidos = new ArrayList<>();
+        List<String> cancelaciones = new ArrayList<>();
+        List<String> demoras = new ArrayList<>();
+        
+        // Crear datos básicos de respaldo
+        Cliente cliente1 = new Cliente("CLI001", "Cliente VIP", "cliente1@morapack.com", "SPIM");
+        cliente1.setClienteVIP(true);
+        clientes.add(cliente1);
+        
+        Cliente cliente2 = new Cliente("CLI002", "Cliente Premium", "cliente2@morapack.com", "EBCI");
+        cliente2.setClienteVIP(true);
+        clientes.add(cliente2);
+        
+        Cliente cliente3 = new Cliente("CLI003", "Cliente Estándar", "cliente3@morapack.com", "UBBB");
+        clientes.add(cliente3);
+        
+        paquetes.add(new Paquete("PKG001", "SPIM", "EBCI", "CLI001"));
+        paquetes.add(new Paquete("PKG002", "EBCI", "UBBB", "CLI002"));
+        paquetes.add(new Paquete("PKG003", "UBBB", "SPIM", "CLI003"));
+        
+        Pedido pedido1 = new Pedido("PED001", "CLI001", "EBCI", 1);
+        pedido1.setPrioridadPedido(1); // URGENTE
+        pedido1.agregarPaquete("PKG001");
+        pedidos.add(pedido1);
+        
+        Pedido pedido2 = new Pedido("PED002", "CLI002", "UBBB", 1);
+        pedido2.setPrioridadPedido(2); // NORMAL
+        pedido2.agregarPaquete("PKG002");
+        pedidos.add(pedido2);
+        
+        Pedido pedido3 = new Pedido("PED003", "CLI003", "SPIM", 1);
+        pedido3.setPrioridadPedido(3); // BAJA
+        pedido3.agregarPaquete("PKG003");
+        pedidos.add(pedido3);
+        
+        cancelaciones.add("MP1234");
+        demoras.add("MP5678");
+        
+        if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+            System.out.println("Usando datos de prueba de respaldo");
+        }
+        
+        return new DatosPrueba(paquetes, clientes, pedidos, cancelaciones, demoras);
+    }
+    
+    /**
+     * Clase para contener todos los datos de prueba
+     */
+    public static class DatosPrueba {
+        public final List<Paquete> paquetes;
+        public final List<Cliente> clientes;
+        public final List<Pedido> pedidos;
+        public final List<String> cancelaciones;
+        public final List<String> demoras;
+        
+        public DatosPrueba(List<Paquete> paquetes, List<Cliente> clientes, List<Pedido> pedidos, 
+                          List<String> cancelaciones, List<String> demoras) {
+            this.paquetes = paquetes;
+            this.clientes = clientes;
+            this.pedidos = pedidos;
+            this.cancelaciones = cancelaciones;
+            this.demoras = demoras;
+        }
     }
 }

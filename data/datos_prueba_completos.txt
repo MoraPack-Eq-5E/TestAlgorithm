@@ -1,0 +1,122 @@
+# Archivo de datos de prueba completos para MoraPack
+# Contiene paquetes, clientes, pedidos, cancelaciones y demoras en un solo archivo
+
+# =============================================================================
+# PAQUETES DE PRUEBA
+# =============================================================================
+# Formato: PKG|ID|AeropuertoOrigen|AeropuertoDestino|ClienteID|Prioridad|Peso|Volumen|TipoContenido
+
+PKG|PKG001|SPIM|SKBO|CLI001|1|2.5|1500|Documentos
+PKG|PKG002|EBCI|EDDI|CLI002|1|1.8|800|Medicamentos
+PKG|PKG003|UBBB|VIDP|CLI003|1|3.2|2000|Equipos médicos
+PKG|PKG004|SPIM|SBBR|CLI004|2|5.0|3000|Electrónicos
+PKG|PKG005|EBCI|LFPG|CLI005|2|4.2|2500|Ropa
+PKG|PKG006|UBBB|RJTT|CLI006|2|6.8|4000|Herramientas
+PKG|PKG007|SKBO|SPIM|CLI007|2|3.5|1800|Libros
+PKG|PKG008|EDDI|EBCI|CLI008|2|2.1|1200|Cosméticos
+PKG|PKG009|VIDP|UBBB|CLI009|3|8.5|5000|Muebles
+PKG|PKG010|SBBR|SPIM|CLI010|3|7.2|4500|Deportes
+PKG|PKG011|SPIM|SKBO|CLI001|1|1.8|900|Documentos adicionales
+PKG|PKG012|EBCI|EDDI|CLI002|1|2.1|1100|Suministros médicos
+PKG|PKG013|UBBB|VIDP|CLI003|2|4.5|2800|Equipos de laboratorio
+PKG|PKG014|SPIM|SBBR|CLI004|2|3.8|2200|Componentes electrónicos
+PKG|PKG015|EBCI|LFPG|CLI005|2|2.9|1600|Accesorios de moda
+PKG|PKG016|UBBB|RJTT|CLI006|2|5.2|3200|Herramientas especializadas
+PKG|PKG017|SKBO|SPIM|CLI007|2|2.7|1400|Material educativo
+PKG|PKG018|EDDI|EBCI|CLI008|2|1.9|1000|Productos de belleza
+PKG|PKG019|VIDP|UBBB|CLI009|3|9.1|5500|Muebles de oficina
+PKG|PKG020|SBBR|SPIM|CLI010|3|6.8|4200|Equipos deportivos
+PKG|PKG021|SPIM|SKBO|CLI001|1|2.2|1200|Contratos urgentes
+PKG|PKG022|EBCI|EDDI|CLI002|1|1.6|850|Medicamentos críticos
+PKG|PKG023|UBBB|VIDP|CLI003|2|3.9|2400|Instrumentos médicos
+PKG|PKG024|SPIM|SBBR|CLI004|2|4.1|2600|Dispositivos tecnológicos
+PKG|PKG025|EBCI|LFPG|CLI005|2|3.3|1900|Textiles de lujo
+PKG|PKG026|UBBB|RJTT|CLI006|2|7.5|4800|Maquinaria industrial
+PKG|PKG027|SKBO|SPIM|CLI007|2|3.1|1700|Libros técnicos
+PKG|PKG028|EDDI|EBCI|CLI008|2|2.3|1300|Productos de cuidado
+PKG|PKG029|VIDP|UBBB|CLI009|3|8.9|5200|Mobiliario doméstico
+PKG|PKG030|SBBR|SPIM|CLI010|3|7.6|4600|Artículos deportivos
+
+# =============================================================================
+# CLIENTES DE PRUEBA
+# =============================================================================
+# Formato: CLI|ID|Nombre|Email|Telefono|Ciudad|Pais|TipoCliente|PrioridadCliente
+
+CLI|CLI001|María González|maria.gonzalez@empresa.com|+57-1-234-5678|Bogotá|Colombia|EMPRESA|1
+CLI|CLI002|Dr. Hans Mueller|h.mueller@hospital.de|+49-30-123-4567|Berlín|Alemania|GOBIERNO|1
+CLI|CLI003|Akira Tanaka|a.tanaka@medical.jp|+81-3-1234-5678|Tokio|Japón|EMPRESA|1
+CLI|CLI004|Carlos Silva|c.silva@tech.com.br|+55-11-9876-5432|Brasilia|Brasil|EMPRESA|2
+CLI|CLI005|Sophie Dubois|s.dubois@fashion.fr|+33-1-234-5678|París|Francia|EMPRESA|2
+CLI|CLI006|Yuki Sato|y.sato@tools.jp|+81-3-9876-5432|Tokio|Japón|EMPRESA|2
+CLI|CLI007|Ana Rodríguez|ana.rodriguez@libros.co|+57-1-987-6543|Bogotá|Colombia|INDIVIDUAL|2
+CLI|CLI008|Klaus Weber|k.weber@beauty.de|+49-30-987-6543|Berlín|Alemania|EMPRESA|2
+CLI|CLI009|Raj Patel|r.patel@furniture.in|+91-11-234-5678|Delhi|India|EMPRESA|3
+CLI|CLI010|Pedro Santos|p.santos@sports.br|+55-11-234-5678|Brasilia|Brasil|INDIVIDUAL|3
+
+# =============================================================================
+# PEDIDOS DE PRUEBA
+# =============================================================================
+# Formato: PED|ID|ClienteID|FechaCreacion|FechaLimite|Estado|TipoPedido|Prioridad|Descripcion
+
+PED|PED001|CLI001|2024-01-15T08:00:00|2024-01-17T18:00:00|CREADO|URGENTE|1|Documentos legales críticos
+PED|PED002|CLI002|2024-01-15T09:30:00|2024-01-17T12:00:00|CREADO|URGENTE|1|Medicamentos para emergencia
+PED|PED003|CLI003|2024-01-15T10:15:00|2024-01-18T15:00:00|CREADO|URGENTE|1|Equipos médicos
+PED|PED004|CLI004|2024-01-15T11:00:00|2024-01-18T17:00:00|CREADO|ESTANDAR|2|Electrónicos
+PED|PED005|CLI005|2024-01-15T12:30:00|2024-01-19T14:00:00|CREADO|ESTANDAR|2|Ropa
+PED|PED006|CLI006|2024-01-15T13:45:00|2024-01-20T16:00:00|CREADO|ESTANDAR|2|Herramientas
+PED|PED007|CLI007|2024-01-15T14:20:00|2024-01-19T18:00:00|CREADO|ESTANDAR|2|Libros
+PED|PED008|CLI008|2024-01-15T15:10:00|2024-01-20T12:00:00|CREADO|ESTANDAR|2|Cosméticos
+PED|PED009|CLI009|2024-01-15T16:00:00|2024-01-22T17:00:00|CREADO|ESTANDAR|3|Muebles
+PED|PED010|CLI010|2024-01-15T17:30:00|2024-01-23T15:00:00|CREADO|ESTANDAR|3|Deportes
+PED|PED011|CLI001|2024-01-16T08:15:00|2024-01-18T16:00:00|CREADO|URGENTE|1|Documentos adicionales
+PED|PED012|CLI002|2024-01-16T09:45:00|2024-01-19T11:00:00|CREADO|URGENTE|1|Suministros médicos
+PED|PED013|CLI003|2024-01-16T10:30:00|2024-01-20T14:00:00|CREADO|ESTANDAR|2|Equipos de laboratorio
+PED|PED014|CLI004|2024-01-16T11:20:00|2024-01-21T17:00:00|CREADO|ESTANDAR|2|Componentes electrónicos
+PED|PED015|CLI005|2024-01-16T12:00:00|2024-01-22T13:00:00|CREADO|ESTANDAR|2|Accesorios de moda
+PED|PED016|CLI006|2024-01-16T13:15:00|2024-01-23T15:00:00|CREADO|ESTANDAR|2|Herramientas especializadas
+PED|PED017|CLI007|2024-01-16T14:30:00|2024-01-22T18:00:00|CREADO|ESTANDAR|2|Material educativo
+PED|PED018|CLI008|2024-01-16T15:45:00|2024-01-24T12:00:00|CREADO|ESTANDAR|2|Productos de belleza
+PED|PED019|CLI009|2024-01-16T16:20:00|2024-01-25T16:00:00|CREADO|ESTANDAR|3|Muebles de oficina
+PED|PED020|CLI010|2024-01-16T17:00:00|2024-01-26T14:00:00|CREADO|ESTANDAR|3|Equipos deportivos
+PED|PED021|CLI001|2024-01-17T08:30:00|2024-01-19T17:00:00|CREADO|URGENTE|1|Contratos urgentes
+PED|PED022|CLI002|2024-01-17T09:15:00|2024-01-20T10:00:00|CREADO|URGENTE|1|Medicamentos críticos
+PED|PED023|CLI003|2024-01-17T10:45:00|2024-01-21T15:00:00|CREADO|ESTANDAR|2|Instrumentos médicos
+PED|PED024|CLI004|2024-01-17T11:30:00|2024-01-22T18:00:00|CREADO|ESTANDAR|2|Dispositivos tecnológicos
+PED|PED025|CLI005|2024-01-17T12:15:00|2024-01-23T14:00:00|CREADO|ESTANDAR|2|Textiles de lujo
+PED|PED026|CLI006|2024-01-17T13:00:00|2024-01-24T16:00:00|CREADO|ESTANDAR|2|Maquinaria industrial
+PED|PED027|CLI007|2024-01-17T14:45:00|2024-01-23T19:00:00|CREADO|ESTANDAR|2|Libros técnicos
+PED|PED028|CLI008|2024-01-17T15:30:00|2024-01-25T13:00:00|CREADO|ESTANDAR|2|Productos de cuidado
+PED|PED029|CLI009|2024-01-17T16:15:00|2024-01-26T17:00:00|CREADO|ESTANDAR|3|Mobiliario doméstico
+PED|PED030|CLI010|2024-01-17T17:00:00|2024-01-27T15:00:00|CREADO|ESTANDAR|3|Artículos deportivos
+
+# =============================================================================
+# CANCELACIONES DE PRUEBA
+# =============================================================================
+# Formato: CAN|NumeroVuelo|FechaCancelacion|HoraCancelacion|Motivo|TipoCancelacion|Impacto
+
+CAN|MPSPIMEBCI_0800|2024-01-16|06:30|Condiciones meteorológicas adversas|METEOROLOGICA|ALTO
+CAN|MPEBCIUBBB_0900|2024-01-16|07:45|Falla en sistema de navegación|TECNICA|CRITICO
+CAN|MPUBBBSPIM_1000|2024-01-16|08:20|Falta de tripulación|OPERATIVA|ALTO
+CAN|MPSKBOEBCI_1400|2024-01-16|12:30|Mantenimiento programado|PROGRAMADA|MEDIO
+CAN|MPEDDIUBBB_1500|2024-01-16|13:15|Baja demanda|MANUAL|BAJO
+
+# =============================================================================
+# DEMORAS DE PRUEBA
+# =============================================================================
+# Formato: DEM|NumeroVuelo|FechaDemora|HoraDemora|DuracionDemora|Motivo|TipoDemora|Impacto
+
+DEM|MPSPIMEBCI_0800|2024-01-16|07:30|2|Lluvia intensa|METEOROLOGICA|MEDIO
+DEM|MPEBCIUBBB_0900|2024-01-16|08:45|3|Falla en comunicación|TECNICA|ALTO
+DEM|MPUBBBSPIM_1000|2024-01-16|09:20|1|Demora en carga|OPERATIVA|BAJO
+DEM|MPSKBOEBCI_1400|2024-01-16|13:30|4|Congestión aeroportuaria|TRAFICO|ALTO
+DEM|MPEDDIUBBB_1500|2024-01-16|14:15|2|Inspección de seguridad|SEGURIDAD|MEDIO
+CAN|MPSPIMSKBO_1200|2024-01-17|10:30|Falla en motor|TECNICA|CRITICO
+CAN|MPEBCIEDDI_1300|2024-01-17|11:45|Condiciones climáticas|METEOROLOGICA|ALTO
+CAN|MPUBBBVIDP_1400|2024-01-17|12:20|Problemas de combustible|OPERATIVA|ALTO
+DEM|MPSPIMSKBO_1200|2024-01-17|11:30|3|Revisión técnica|TECNICA|ALTO
+DEM|MPEBCIEDDI_1300|2024-01-17|12:45|2|Neblina|METEOROLOGICA|MEDIO
+DEM|MPUBBBVIDP_1400|2024-01-17|13:20|4|Demora en aduanas|ADUANAS|ALTO
+CAN|MPSBBRSPIM_1600|2024-01-18|14:30|Mantenimiento preventivo|PROGRAMADA|MEDIO
+CAN|MPLFPGEBCI_1700|2024-01-18|15:15|Baja ocupación|MANUAL|BAJO
+DEM|MPSBBRSPIM_1600|2024-01-18|15:30|1|Demora en carga|OPERATIVA|BAJO
+DEM|MPLFPGEBCI_1700|2024-01-18|16:15|2|Congestión en pista|TRAFICO|MEDIO

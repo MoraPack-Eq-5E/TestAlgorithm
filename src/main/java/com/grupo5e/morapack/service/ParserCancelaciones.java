@@ -45,21 +45,21 @@ public class ParserCancelaciones {
                     CancelacionProgramada cancelacion = parsearLinea(linea, numeroLinea);
                     cancelaciones.add(cancelacion);
                     
-                    System.out.println("✅ Línea " + numeroLinea + ": " + cancelacion.toString());
+                    System.out.println("Línea " + numeroLinea + ": " + cancelacion.toString());
                     
                 } catch (IllegalArgumentException e) {
-                    System.err.println("❌ Error en línea " + numeroLinea + ": " + e.getMessage());
+                    System.err.println("Error en línea " + numeroLinea + ": " + e.getMessage());
                     System.err.println("   Línea: " + linea);
                 }
             }
             
         } catch (IOException e) {
-            System.err.println("❌ Error al leer el archivo: " + e.getMessage());
+            System.err.println("Error al leer el archivo: " + e.getMessage());
             return new ArrayList<>();
         }
         
         System.out.println("=" .repeat(60));
-        System.out.println("📊 Resumen del parsing:");
+        System.out.println("Resumen del parsing:");
         System.out.println("   Total de líneas procesadas: " + numeroLinea);
         System.out.println("   Cancelaciones válidas parseadas: " + cancelaciones.size());
         System.out.println("   Errores encontrados: " + (numeroLinea - cancelaciones.size()));
@@ -184,11 +184,11 @@ public class ParserCancelaciones {
             return;
         }
         
-        System.out.println("\n📊 REPORTE DETALLADO DE CANCELACIONES");
+        System.out.println("\nREPORTE DETALLADO DE CANCELACIONES");
         System.out.println("=" .repeat(80));
         
         // Estadísticas generales
-        System.out.println("📈 Estadísticas Generales:");
+        System.out.println("Estadísticas Generales:");
         System.out.println("   Total de cancelaciones: " + cancelaciones.size());
         
         // Agrupar por día
@@ -292,7 +292,7 @@ public class ParserCancelaciones {
         @Override
         public String toString() {
             return String.format("Validación: %s | Líneas: %d | Válidas: %d | Errores: %d", 
-                               valido ? "✅ VÁLIDO" : "❌ INVÁLIDO", 
+                               valido ? "VÁLIDO" : "INVÁLIDO", 
                                lineasProcesadas, lineasValidas, lineasConError);
         }
     }
@@ -302,7 +302,7 @@ public class ParserCancelaciones {
      */
     public static void main(String[] args) {
         if (args.length == 0) {
-            System.out.println("🔧 ParserCancelaciones - Uso:");
+            System.out.println("ParserCancelaciones - Uso:");
             System.out.println("   java ParserCancelaciones <ruta_archivo>");
             System.out.println("   java ParserCancelaciones validar <ruta_archivo>");
             System.out.println("\n📋 Formato esperado: " + FORMATO_ESPERADO);
@@ -315,12 +315,12 @@ public class ParserCancelaciones {
         
         if ("validar".equals(comando)) {
             // Solo validar el archivo
-            System.out.println("🔍 Validando archivo: " + rutaArchivo);
+            System.out.println("Validando archivo: " + rutaArchivo);
             ResultadoValidacion resultado = validarArchivo(rutaArchivo);
             System.out.println(resultado);
             
             if (!resultado.isValido()) {
-                System.out.println("\n❌ Errores encontrados:");
+                System.out.println("\nErrores encontrados:");
                 for (String error : resultado.getErrores()) {
                     System.out.println("   " + error);
                 }

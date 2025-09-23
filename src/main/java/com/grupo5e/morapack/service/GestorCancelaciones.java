@@ -52,7 +52,7 @@ public class GestorCancelaciones {
             );
             historialCancelaciones.add(evento);
             
-            System.out.println("✅ Vuelo " + numeroVuelo + " cancelado manualmente");
+            System.out.println("Vuelo " + numeroVuelo + " cancelado manualmente");
             System.out.println("   Motivo: " + motivo);
             System.out.println("   Paquetes liberados: " + vuelo.getPaquetesReservados());
             
@@ -86,7 +86,7 @@ public class GestorCancelaciones {
         );
         historialCancelaciones.add(evento);
         
-        System.out.println("✅ Vuelo " + numeroVuelo + " cancelado programadamente");
+        System.out.println("Vuelo " + numeroVuelo + " cancelado programadamente");
         System.out.println("   Motivo: " + motivo);
         System.out.println("   Paquetes liberados: " + vuelo.getPaquetesReservados());
         
@@ -113,7 +113,7 @@ public class GestorCancelaciones {
             }
             
         } catch (Exception e) {
-            System.err.println("❌ Error al procesar archivo de cancelaciones: " + e.getMessage());
+            System.err.println("Error al procesar archivo de cancelaciones: " + e.getMessage());
             resultados.add(new ResultadoCancelacion(false, "Error: " + e.getMessage()));
         }
         
@@ -168,12 +168,12 @@ public class GestorCancelaciones {
      * Genera reporte de cancelaciones
      */
     public void generarReporte() {
-        System.out.println("\n📊 REPORTE DE CANCELACIONES");
+        System.out.println("\nREPORTE DE CANCELACIONES");
         System.out.println("=" .repeat(60));
         
         EstadisticasCancelaciones stats = getEstadisticas();
         
-        System.out.println("📈 Estadísticas Generales:");
+        System.out.println("Estadísticas Generales:");
         System.out.println("   Total de cancelaciones: " + stats.getTotalCancelaciones());
         System.out.println("   Cancelaciones manuales: " + stats.getCancelacionesManuales());
         System.out.println("   Cancelaciones programadas: " + stats.getCancelacionesProgramadas());
@@ -255,7 +255,7 @@ public class GestorCancelaciones {
         
         @Override
         public String toString() {
-            return (exitoso ? "✅" : "❌") + " " + mensaje;
+            return (exitoso ? "OK" : "ERROR") + " " + mensaje;
         }
     }
     

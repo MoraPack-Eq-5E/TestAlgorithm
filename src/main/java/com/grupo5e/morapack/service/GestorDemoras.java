@@ -166,7 +166,7 @@ public class GestorDemoras {
         
         EstadisticasDemoras stats = getEstadisticas();
         
-        System.out.println("📈 Estadísticas Generales:");
+        System.out.println("Estadísticas Generales:");
         System.out.println("   Total de demoras aplicadas: " + stats.getTotalDemoras());
         System.out.println("   Vuelos con demora actual: " + stats.getVuelosConDemora());
         System.out.println("   Vuelos demorables: " + stats.getVuelosDemorables());
@@ -264,7 +264,7 @@ public class GestorDemoras {
         
         @Override
         public String toString() {
-            return (exitoso ? "✅" : "❌") + " " + mensaje;
+            return (exitoso ? "OK" : "ERROR") + " " + mensaje;
         }
     }
     

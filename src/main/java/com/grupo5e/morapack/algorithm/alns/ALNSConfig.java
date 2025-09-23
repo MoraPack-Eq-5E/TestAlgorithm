@@ -9,25 +9,21 @@ import java.util.*;
 public class ALNSConfig {
     private static ALNSConfig instance;
     
-    // Parámetros de Simulated Annealing - OPTIMIZADOS
-    private double startTempControlParam = 0.2;  // Aumentado para mayor exploración inicial
-    private double bigOmega = 0.15;              // Aumentado para mayor flexibilidad
-    private double minTempPercent = 0.005;       // Reducido para permitir más exploración
-    private double coolingRate = 0.995;          // Enfriamiento más rápido para mejor convergencia
+    private double startTempControlParam = 0.2;
+    private double bigOmega = 0.15;
+    private double minTempPercent = 0.005;
+    private double coolingRate = 0.995;
     private double epsilon = 1e-6;
     
-    // Parámetros adaptativos de operadores - OPTIMIZADOS
-    private double reactionFactor = 0.15;        // Mayor adaptabilidad
-    private int updateInterval = 30;             // Actualización más frecuente
-    private double minOpProb = 0.02;             // Probabilidad mínima más alta
+    private double reactionFactor = 0.15;
+    private int updateInterval = 30;
+    private double minOpProb = 0.02;
     private double bigMRegret = 10000.0;
     
-    // Valores sigma para scoring de operadores
-    private double sigma1 = 33.0;  // Mejor solución global
-    private double sigma2 = 9.0;   // Mejor solución actual
-    private double sigma3 = 13.0;  // Solución aceptada por SA
+    private double sigma1 = 33.0;
+    private double sigma2 = 9.0;
+    private double sigma3 = 13.0;
     
-    // Configuración de operadores habilitados
     private boolean useGreedyInsert = true;
     private boolean useNRegret2 = true;
     private boolean useNRegret3 = true;

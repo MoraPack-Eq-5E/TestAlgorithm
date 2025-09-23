@@ -68,7 +68,7 @@ public class ALNSSolverIntegrado extends ALNSSolver {
         
         // Log initialization only if verbose logging is enabled
         if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
-            System.out.println("✅ Servicios integrados inicializados:");
+            System.out.println("Servicios integrados inicializados:");
             System.out.println("   - GestorCancelaciones: " + mapaVuelos.size() + " vuelos");
             System.out.println("   - GestorDemoras: " + mapaVuelos.size() + " vuelos");
             System.out.println("   - GestorReasignacion: " + mapaPaquetes.size() + " paquetes, " + mapaPedidos.size() + " pedidos");
@@ -90,10 +90,10 @@ public class ALNSSolverIntegrado extends ALNSSolver {
         
         // Log configuration only if verbose logging is enabled
         if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
-            System.out.println("🎯 Escenarios configurados:");
-            System.out.println("   - Cancelaciones: " + (simularCancelaciones ? "✅" : "❌"));
-            System.out.println("   - Demoras: " + (simularDemoras ? "✅" : "❌"));
-            System.out.println("   - Reasignaciones: " + (permitirReasignaciones ? "✅" : "❌"));
+            System.out.println("Escenarios configurados:");
+            System.out.println("   - Cancelaciones: " + (simularCancelaciones ? "SÍ" : "NO"));
+            System.out.println("   - Demoras: " + (simularDemoras ? "SÍ" : "NO"));
+            System.out.println("   - Reasignaciones: " + (permitirReasignaciones ? "SÍ" : "NO"));
             System.out.println("   - Archivo pedidos: " + (archivoPedidos != null ? archivoPedidos : "No especificado"));
             System.out.println("   - Archivo cancelaciones: " + (archivoCancelaciones != null ? archivoCancelaciones : "No especificado"));
         }
@@ -105,7 +105,7 @@ public class ALNSSolverIntegrado extends ALNSSolver {
     @Override
     public Solucion resolver() {
         if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
-            System.out.println("🚀 Iniciando ALNS Integrado con nuevas funcionalidades...");
+            System.out.println("Iniciando ALNS Integrado con nuevas funcionalidades...");
         }
         
         // 1. Cargar pedidos desde archivo si se especifica
@@ -141,17 +141,17 @@ public class ALNSSolverIntegrado extends ALNSSolver {
      * Carga pedidos desde archivo usando el parser
      */
     private void cargarPedidosDesdeArchivo() {
-        System.out.println("📁 Cargando pedidos desde archivo: " + archivoPedidos);
+        System.out.println("Cargando pedidos desde archivo: " + archivoPedidos);
         
         try {
             List<Pedido> pedidosParseados = ParserPedidos.parsearArchivo(archivoPedidos);
-            System.out.println("✅ Cargados " + pedidosParseados.size() + " pedidos desde archivo");
+            System.out.println("Cargados " + pedidosParseados.size() + " pedidos desde archivo");
             
             // Aquí se podrían integrar los pedidos al contexto del problema
             // Por ahora solo mostramos la información
             
         } catch (Exception e) {
-            System.err.println("❌ Error al cargar pedidos: " + e.getMessage());
+            System.err.println("Error al cargar pedidos: " + e.getMessage());
         }
     }
     
@@ -170,10 +170,10 @@ public class ALNSSolverIntegrado extends ALNSSolver {
                 .count();
             
             this.cancelacionesAplicadas = exitosas;
-            System.out.println("✅ " + exitosas + "/" + resultados.size() + " cancelaciones aplicadas");
+            System.out.println(exitosas + "/" + resultados.size() + " cancelaciones aplicadas");
             
         } catch (Exception e) {
-            System.err.println("❌ Error al aplicar cancelaciones: " + e.getMessage());
+            System.err.println("Error al aplicar cancelaciones: " + e.getMessage());
         }
     }
     
@@ -195,10 +195,10 @@ public class ALNSSolverIntegrado extends ALNSSolver {
                 .count();
             
             this.reasignacionesRealizadas = exitosas;
-            System.out.println("✅ " + exitosas + "/" + resultados.size() + " reasignaciones realizadas");
+            System.out.println(exitosas + "/" + resultados.size() + " reasignaciones realizadas");
             
         } catch (Exception e) {
-            System.err.println("❌ Error en optimización: " + e.getMessage());
+            System.err.println("Error en optimización: " + e.getMessage());
         }
     }
     
@@ -206,7 +206,7 @@ public class ALNSSolverIntegrado extends ALNSSolver {
      * Simula eventos de crisis durante la ejecución
      */
     private void simularEventosCrisis() {
-        System.out.println("🚨 Simulando eventos de crisis...");
+        System.out.println("Simulando eventos de crisis...");
         
         // Simular cancelaciones aleatorias
         if (simularCancelaciones) {
@@ -276,7 +276,7 @@ public class ALNSSolverIntegrado extends ALNSSolver {
      * Genera reporte integrado con todas las funcionalidades
      */
     private void generarReporteIntegrado() {
-        System.out.println("\n📊 REPORTE INTEGRADO ALNS + NUEVAS FUNCIONALIDADES");
+        System.out.println("\nREPORTE INTEGRADO ALNS + NUEVAS FUNCIONALIDADES");
         System.out.println("=" .repeat(80));
         
         // Reporte base de ALNS
@@ -290,7 +290,7 @@ public class ALNSSolverIntegrado extends ALNSSolver {
         System.out.println("   Eventos de crisis: " + eventosCrisis.size());
         
         if (!eventosCrisis.isEmpty()) {
-            System.out.println("\n🚨 Eventos de Crisis:");
+            System.out.println("\nEventos de Crisis:");
             for (String evento : eventosCrisis) {
                 System.out.println("   - " + evento);
             }

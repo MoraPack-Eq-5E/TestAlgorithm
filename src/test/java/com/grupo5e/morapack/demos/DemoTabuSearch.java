@@ -26,7 +26,7 @@ public class DemoTabuSearch {
         TipoDemo tipo = (args != null && args.length > 0)
                 ? parse(args[0]) : TipoDemo.BASICO;
 
-        System.out.println("=== 🚀 DEMO TABU SEARCH (" + tipo + ") ===\n");
+        System.out.println("=== DEMO TABU SEARCH (" + tipo + ") ===\n");
         try {
             if (tipo == TipoDemo.BASICO) {
                 ejecutarBasico();
@@ -34,7 +34,7 @@ public class DemoTabuSearch {
                 ejecutarReales();
             }
         } catch (Exception e) {
-            System.err.println("❌ Error en DemoTabuSearch: " + e.getMessage());
+            System.err.println("Error en DemoTabuSearch: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -48,7 +48,7 @@ public class DemoTabuSearch {
     // ============================================================
 
     private static void ejecutarBasico() {
-        // 1) Construir problema básico (siguiendo tu DemoSimpleFuncional)
+        // Construir problema básico
         var aeropuertos = Arrays.asList(
                 new Aeropuerto("LIM", "Lima", "Perú", "América", -12.0, -77.0, 100, true),
                 new Aeropuerto("BRU", "Bruselas", "Bélgica", "Europa", 50.0, 4.0, 100, true),
@@ -188,11 +188,11 @@ public class DemoTabuSearch {
     }
 
     // ============================================================
-    // MODO 2: REALES (si tienes loader y datos como en DemoConDatosReales)
+    // MODO 2: REALES
     // ============================================================
 
     private static void ejecutarReales() throws Exception {
-        // Reutiliza tu pipeline de carga; si ya usas MoraPackDataLoader, úsalo aquí.
+        // Reutilizar pipeline de carga
         // Por simplicidad, arma listas mínimas; puedes sustituir por tu loader real.
         throw new UnsupportedOperationException("Implementa aquí la carga real si ya tienes MoraPackDataLoader en tu proyecto.");
     }

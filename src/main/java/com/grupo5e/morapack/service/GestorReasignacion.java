@@ -82,7 +82,7 @@ public class GestorReasignacion {
                 }
             }
             
-            System.out.println("✅ Paquete " + paqueteId + " reasignado exitosamente");
+            System.out.println("Paquete " + paqueteId + " reasignado exitosamente");
             System.out.println("   Cliente: " + clienteOriginal + " -> " + nuevoClienteId);
             System.out.println("   Destino: " + destinoOriginal + " -> " + nuevoDestino);
             System.out.println("   Pedido: " + pedidoOriginal + " -> " + nuevoPedidoId);
@@ -254,7 +254,7 @@ public class GestorReasignacion {
         
         EstadisticasReasignacion stats = getEstadisticas();
         
-        System.out.println("📈 Estadísticas Generales:");
+        System.out.println("Estadísticas Generales:");
         System.out.println("   Total de reasignaciones: " + stats.getTotalReasignaciones());
         System.out.println("   Paquetes reasignables: " + stats.getPaquetesReasignables());
         System.out.println("   Paquetes no reasignables: " + stats.getPaquetesNoReasignables());
@@ -362,7 +362,7 @@ public class GestorReasignacion {
         
         @Override
         public String toString() {
-            return (exitoso ? "✅" : "❌") + " " + mensaje;
+            return (exitoso ? "OK" : "ERROR") + " " + mensaje;
         }
     }
     

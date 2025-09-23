@@ -55,7 +55,7 @@ public class CapacityRebalancingOperator extends AbstractOperator implements Ope
             paquetesInsertados += buscarRutasConEscalas(solucionTemporal, paquetesPendientes, contexto);
         }
         
-        System.out.println("   ✅ CapacityRebalancing: Insertados " + paquetesInsertados + " paquetes");
+        System.out.println("   CapacityRebalancing: Insertados " + paquetesInsertados + " paquetes");
         return solucionTemporal;
     }
     
@@ -228,11 +228,11 @@ public class CapacityRebalancingOperator extends AbstractOperator implements Ope
             solucion.agregarRuta(paquete.getId(), ruta);
             solucion.getOcupacionVuelos().put(vuelo.getNumeroVuelo(), vuelo.getPaquetesReservados());
             
-            System.out.println("   ✅ Producto " + paquete.getId() + " insertado en vuelo " + vuelo.getNumeroVuelo());
+            System.out.println("   Producto " + paquete.getId() + " insertado en vuelo " + vuelo.getNumeroVuelo());
             return true;
             
         } catch (Exception e) {
-            System.out.println("   ❌ Error insertando producto " + paquete.getId() + ": " + e.getMessage());
+            System.out.println("   Error insertando producto " + paquete.getId() + ": " + e.getMessage());
             return false;
         }
     }
@@ -271,11 +271,11 @@ public class CapacityRebalancingOperator extends AbstractOperator implements Ope
                 solucion.getOcupacionVuelos().put(vuelo.getNumeroVuelo(), vuelo.getPaquetesReservados());
             }
             
-            System.out.println("   ✅ Producto " + paquete.getId() + " insertado en ruta con escalas");
+            System.out.println("   Producto " + paquete.getId() + " insertado en ruta con escalas");
             return true;
             
         } catch (Exception e) {
-            System.out.println("   ❌ Error insertando producto " + paquete.getId() + " en ruta con escalas: " + e.getMessage());
+            System.out.println("   Error insertando producto " + paquete.getId() + " en ruta con escalas: " + e.getMessage());
             return false;
         }
     }

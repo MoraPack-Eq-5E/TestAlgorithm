@@ -43,13 +43,13 @@ public class ConstruccionInteligente implements OperadorConstruccion {
                 paquetesNoRuteados++;
                 // Log only if verbose logging is enabled
                 if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
-                    System.out.println("⚠️  No se pudo rutear " + paqueteId + " respetando capacidades");
+                    System.out.println("No se pudo rutear " + paqueteId + " respetando capacidades");
                 }
             }
         }
         
         if (paquetesNoRuteados > 0 && com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
-            System.out.println("📊 Paquetes no ruteados por saturación: " + paquetesNoRuteados + "/" + paquetesRemovidos.size());
+            System.out.println("Paquetes no ruteados por saturación: " + paquetesNoRuteados + "/" + paquetesRemovidos.size());
         }
         
         return nuevaSolucion;

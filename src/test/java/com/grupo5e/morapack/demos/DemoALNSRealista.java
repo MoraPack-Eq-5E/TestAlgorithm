@@ -19,7 +19,7 @@ public class DemoALNSRealista {
     private static final boolean ENABLE_VERBOSE_DEBUG = false; // Production setting: verbose logging disabled
     
     public static void main(String[] args) {
-        System.out.println("🚀 DEMO REALISTA: ALNS Mejorado para MoraPack");
+        System.out.println("DEMO REALISTA: ALNS Mejorado para MoraPack");
         System.out.println("=" .repeat(80));
         
         DemoALNSRealista demo = new DemoALNSRealista();
@@ -29,37 +29,37 @@ public class DemoALNSRealista {
     public void ejecutarDemoCompleto() {
         try {
             // 1. Cargar datos reales del sistema
-            System.out.println("📁 Cargando datos reales de MoraPack...");
+            System.out.println("Cargando datos reales de MoraPack...");
             DatosReales datos = cargarDatosReales();
             
             // 2. Cargar datos de prueba desde archivos
-            System.out.println("\n📦 Cargando datos de prueba desde archivos...");
+            System.out.println("\nCargando datos de prueba desde archivos...");
             MoraPackDataLoader.DatosPrueba datosPrueba = cargarDatosPrueba();
             
             // 3. Configurar ALNS con parámetros optimizados
-            System.out.println("\n⚙️ Configurando ALNS mejorado...");
+            System.out.println("\nConfigurando ALNS mejorado...");
             configurarALNS();
             
             // 4. Escenario 1: Optimización inicial de rutas
-            System.out.println("\n🎯 ESCENARIO 1: Optimización inicial de rutas");
+            System.out.println("\nESCENARIO 1: Optimización inicial de rutas");
             ejecutarEscenarioOptimizacionInicial(datos, datosPrueba);
             
             // 5. Escenario 2: Reasignación por cancelaciones
-            System.out.println("\n🎯 ESCENARIO 2: Reasignación por cancelaciones de vuelos");
+            System.out.println("\nESCENARIO 2: Reasignación por cancelaciones de vuelos");
             ejecutarEscenarioCancelaciones(datos, datosPrueba);
             
             // 6. Escenario 3: Reasignación por demoras
-            System.out.println("\n🎯 ESCENARIO 3: Reasignación por demoras de vuelos");
+            System.out.println("\nESCENARIO 3: Reasignación por demoras de vuelos");
             ejecutarEscenarioDemoras(datos, datosPrueba);
             
             // 7. Escenario 4: Optimización con alta demanda
-            System.out.println("\n🎯 ESCENARIO 4: Optimización con alta demanda");
+            System.out.println("\nESCENARIO 4: Optimización con alta demanda");
             ejecutarEscenarioAltaDemanda(datos, datosPrueba);
             
-            System.out.println("\n✅ DEMO COMPLETADO - ALNS funcionando correctamente!");
+            System.out.println("\nDEMO COMPLETADO - ALNS funcionando correctamente!");
             
         } catch (Exception e) {
-            System.err.println("❌ Error en demo: " + e.getMessage());
+            System.err.println("Error en demo: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -112,8 +112,8 @@ public class DemoALNSRealista {
         // Usar paquetes de prueba con diferentes prioridades
         List<Paquete> paquetes = new ArrayList<>(datosPrueba.paquetes);
         
-        System.out.println("   📦 Paquetes cargados: " + paquetes.size());
-        System.out.println("   🎯 Objetivo: Optimizar rutas iniciales");
+        System.out.println("   Paquetes cargados: " + paquetes.size());
+        System.out.println("   Objetivo: Optimizar rutas iniciales");
         
         // Crear ALNS y resolver con parámetros más conservadores
         ALNSSolver alns = new ALNSSolver(150, 50.0, 0.998);
@@ -131,9 +131,9 @@ public class DemoALNSRealista {
         List<Paquete> paquetes = new ArrayList<>(datosPrueba.paquetes);
         List<Vuelo> vuelosConCancelaciones = simularCancelacionesReales(datos.vuelos, datosPrueba.cancelaciones);
         
-        System.out.println("   📦 Paquetes: " + paquetes.size());
-        System.out.println("   ❌ Vuelos cancelados: " + datosPrueba.cancelaciones.size());
-        System.out.println("   🎯 Objetivo: Reasignar paquetes afectados");
+        System.out.println("   Paquetes: " + paquetes.size());
+        System.out.println("   Vuelos cancelados: " + datosPrueba.cancelaciones.size());
+        System.out.println("   Objetivo: Reasignar paquetes afectados");
         
         ALNSSolver alns = new ALNSSolver(200, 75.0, 0.995);
         alns.configurarProblema(paquetes, datos.aeropuertos, vuelosConCancelaciones, datos.continentes);
@@ -150,9 +150,9 @@ public class DemoALNSRealista {
         List<Paquete> paquetes = new ArrayList<>(datosPrueba.paquetes);
         List<Vuelo> vuelosConDemoras = simularDemorasReales(datos.vuelos, datosPrueba.demoras);
         
-        System.out.println("   📦 Paquetes: " + paquetes.size());
-        System.out.println("   ⏰ Vuelos con demora: " + datosPrueba.demoras.size());
-        System.out.println("   🎯 Objetivo: Reoptimizar por demoras");
+        System.out.println("   Paquetes: " + paquetes.size());
+        System.out.println("   Vuelos con demora: " + datosPrueba.demoras.size());
+        System.out.println("   Objetivo: Reoptimizar por demoras");
         
         ALNSSolver alns = new ALNSSolver(180, 60.0, 0.996);
         alns.configurarProblema(paquetes, datos.aeropuertos, vuelosConDemoras, datos.continentes);
@@ -168,8 +168,8 @@ public class DemoALNSRealista {
         // Usar todos los paquetes de prueba para simular alta demanda
         List<Paquete> paquetes = new ArrayList<>(datosPrueba.paquetes);
         
-        System.out.println("   📦 Paquetes (alta demanda): " + paquetes.size());
-        System.out.println("   🎯 Objetivo: Optimizar con alta carga");
+        System.out.println("   Paquetes (alta demanda): " + paquetes.size());
+        System.out.println("   Objetivo: Optimizar con alta carga");
         
         ALNSSolver alns = new ALNSSolver(300, 100.0, 0.997);
         alns.configurarProblema(paquetes, datos.aeropuertos, datos.vuelos, datos.continentes);
@@ -183,17 +183,17 @@ public class DemoALNSRealista {
     
     
     private void mostrarResultados(String escenario, Solucion solucion, long tiempoMs, int totalPaquetes) {
-        System.out.println("\n   📊 RESULTADOS - " + escenario + ":");
-        System.out.println("   ⏱️  Tiempo: " + (tiempoMs / 1000.0) + " segundos");
-        System.out.println("   📦 Paquetes procesados: " + totalPaquetes);
-        System.out.println("   🛣️  Rutas generadas: " + solucion.getRutasPaquetes().size());
-        System.out.println("   💰 Costo total: " + String.format("%.2f", solucion.getCostoTotal()));
-        System.out.println("   ⏰ Tiempo total: " + String.format("%.2f", solucion.getTiempoTotalHoras()) + " horas");
-        System.out.println("   ✅ Solución factible: " + (solucion.isEsFactible() ? "SÍ" : "NO"));
+        System.out.println("\n   RESULTADOS - " + escenario + ":");
+        System.out.println("   Tiempo: " + (tiempoMs / 1000.0) + " segundos");
+        System.out.println("   Paquetes procesados: " + totalPaquetes);
+        System.out.println("   Rutas generadas: " + solucion.getRutasPaquetes().size());
+        System.out.println("   Costo total: " + String.format("%.2f", solucion.getCostoTotal()));
+        System.out.println("   Tiempo total: " + String.format("%.2f", solucion.getTiempoTotalHoras()) + " horas");
+        System.out.println("   Solución factible: " + (solucion.isEsFactible() ? "SÍ" : "NO"));
         
         // Mostrar algunas rutas como ejemplo solo si está habilitado el debug verbose
         if (ENABLE_VERBOSE_DEBUG) {
-            System.out.println("   📋 Ejemplo de rutas:");
+            System.out.println("   Ejemplo de rutas:");
             int contador = 0;
             for (Map.Entry<String, Ruta> entry : solucion.getRutasPaquetes().entrySet()) {
                 if (contador < 3) { // Mostrar solo las primeras 3
@@ -208,7 +208,7 @@ public class DemoALNSRealista {
         
         // Mostrar resumen de eficiencia
         double eficiencia = (double) solucion.getRutasPaquetes().size() / totalPaquetes * 100;
-        System.out.println("   📈 Eficiencia: " + String.format("%.1f", eficiencia) + "% de paquetes ruteados");
+        System.out.println("   Eficiencia: " + String.format("%.1f", eficiencia) + "% de paquetes ruteados");
     }
     
     private List<Vuelo> simularCancelacionesReales(List<Vuelo> vuelos, List<String> vuelosACancelar) {

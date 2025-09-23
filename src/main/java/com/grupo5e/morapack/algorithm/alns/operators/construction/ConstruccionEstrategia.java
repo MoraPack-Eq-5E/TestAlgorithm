@@ -47,13 +47,12 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         Solucion nuevaSolucion = solucionParcial.copiar();
         int paquetesNoRuteados = 0;
         
-        // Ordenar paquetes según estrategia (si aplica)
         List<String> paquetesOrdenados = estrategia.ordenarPaquetes(paquetesRemovidos, contexto);
         
         for (String paqueteId : paquetesOrdenados) {
             Paquete paquete = contexto.getPaquete(paqueteId);
             if (paquete == null) {
-                System.err.println("⚠️ Paquete no encontrado: " + paqueteId);
+                System.err.println("Paquete no encontrado: " + paqueteId);
                 continue;
             }
             
@@ -69,7 +68,7 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         }
         
         if (paquetesNoRuteados > 0) {
-            System.out.println("📊 " + nombre + " - Paquetes no ruteados: " + paquetesNoRuteados + "/" + paquetesRemovidos.size());
+            System.out.println(nombre + " - Paquetes no ruteados: " + paquetesNoRuteados + "/" + paquetesRemovidos.size());
         }
         
         return nuevaSolucion;
@@ -125,7 +124,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         public Ruta seleccionarMejorRuta(String paqueteId, Paquete paquete, ContextoProblema contexto, 
                                         ValidadorRestricciones validador, Solucion solucionActual) {
             
-            // Buscar primera ruta directa factible
             List<Vuelo> vuelosDirectos = contexto.getVuelosDirectos(
                 paquete.getAeropuertoOrigen(), paquete.getAeropuertoDestino()
             );
@@ -137,7 +135,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
                 }
             }
             
-            // Si no hay directa, buscar con una conexión usando BFS
             List<String> rutaBFS = contexto.encontrarRutaMasCorta(
                 paquete.getAeropuertoOrigen(), paquete.getAeropuertoDestino()
             );
@@ -151,7 +148,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         
         @Override
         public void manejarPaqueteNoRuteado(String paqueteId, Paquete paquete, Solucion solucion) {
-            // Estrategia voraz: crear ruta básica aunque viole restricciones
             Ruta rutaBasica = ConstruccionEstrategia.crearRutaBasicaFallback(paquete);
             solucion.agregarRuta(paqueteId, rutaBasica);
             solucion.setViolacionesRestricciones(solucion.getViolacionesRestricciones() + 1);
@@ -167,7 +163,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         
         @Override
         public List<String> ordenarPaquetes(List<String> paquetes, ContextoProblema contexto) {
-            // Ordenar por distancia (mayor distancia primero, más opciones)
             return paquetes.stream()
                 .sorted((p1, p2) -> {
                     Paquete paq1 = contexto.getPaquete(p1);
@@ -195,7 +190,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         
         @Override
         public void manejarPaqueteNoRuteado(String paqueteId, Paquete paquete, Solucion solucion) {
-            // No agregar si no hay ruta de costo aceptable
             System.out.println("💰 No se encontró ruta de costo aceptable para " + paqueteId);
         }
     }
@@ -214,7 +208,7 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
                     Paquete paq1 = contexto.getPaquete(p1);
                     Paquete paq2 = contexto.getPaquete(p2);
                     if (paq1 != null && paq2 != null) {
-                        return Integer.compare(paq2.getPrioridad(), paq1.getPrioridad()); // Descendente
+                        return Integer.compare(paq2.getPrioridad(), paq1.getPrioridad());
                     }
                     return 0;
                 })
@@ -300,7 +294,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
             String origen = paquete.getAeropuertoOrigen();
             String destino = paquete.getAeropuertoDestino();
             
-            // 1. Intentar ruta directa validando capacidades
             List<Vuelo> vuelosDirectos = contexto.getVuelosDirectos(origen, destino);
             for (Vuelo vuelo : vuelosDirectos) {
                 Ruta rutaDirecta = ConstruccionEstrategia.crearRutaDirecta(vuelo, paquete);
@@ -309,7 +302,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
                 }
             }
             
-            // 2. Intentar ruta con conexión validando capacidades
             List<String> rutaBFS = contexto.encontrarRutaMasCorta(origen, destino);
             if (rutaBFS.size() >= 3) {
                 Ruta rutaConConexion = ConstruccionEstrategia.crearRutaConConexiones(rutaBFS, contexto, paquete);
@@ -323,7 +315,7 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         
         @Override
         public void manejarPaqueteNoRuteado(String paqueteId, Paquete paquete, Solucion solucion) {
-            System.out.println("⚠️ No se pudo rutear " + paqueteId + " respetando capacidades");
+            System.out.println("No se pudo rutear " + paqueteId + " respetando capacidades");
         }
     }
     
@@ -346,7 +338,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
             }
         }
         
-        // Ruta con conexión usando BFS
         List<String> rutaBFS = contexto.encontrarRutaMasCorta(
             paquete.getAeropuertoOrigen(), paquete.getAeropuertoDestino()
         );

@@ -41,15 +41,12 @@ public class IntelligentRepairOperator extends AbstractOperator implements Opera
         Solucion solucionTemporal = solucion.copiar();
         List<String> paquetesPendientes = new ArrayList<>(paquetesRemovidos);
         
-        // Debug controlado por configuración
         if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
-            System.out.println("   🔧 IntelligentRepair: Reparando " + paquetesPendientes.size() + " paquetes");
+            System.out.println("   IntelligentRepair: Reparando " + paquetesPendientes.size() + " paquetes");
         }
         
-        // Fase 1: Clasificar paquetes por nivel de dificultad
         Map<String, Integer> dificultadPaquetes = clasificarDificultadPaquetes(paquetesPendientes, contexto);
         
-        // Fase 2: Procesar paquetes por orden de dificultad (más difíciles primero)
         List<String> paquetesOrdenados = paquetesPendientes.stream()
             .sorted(Comparator.comparing(dificultadPaquetes::get).reversed())
             .toList();
@@ -60,14 +57,12 @@ public class IntelligentRepairOperator extends AbstractOperator implements Opera
                 paquetesReparados++;
                 paquetesPendientes.remove(paqueteId);
             } else {
-                // Registrar fallo para aprendizaje futuro
                 registrarFallo(paqueteId);
             }
         }
         
-        // Debug controlado por configuración
         if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
-            System.out.println("   ✅ IntelligentRepair: Reparados " + paquetesReparados + " paquetes");
+            System.out.println("   IntelligentRepair: Reparados " + paquetesReparados + " paquetes");
         }
         return solucionTemporal;
     }
@@ -334,11 +329,11 @@ public class IntelligentRepairOperator extends AbstractOperator implements Opera
             solucion.agregarRuta(paquete.getId(), ruta);
             solucion.getOcupacionVuelos().put(vuelo.getNumeroVuelo(), vuelo.getPaquetesReservados());
             
-            System.out.println("   ✅ Producto " + paquete.getId() + " reparado en vuelo " + vuelo.getNumeroVuelo());
+            System.out.println("   Producto " + paquete.getId() + " reparado en vuelo " + vuelo.getNumeroVuelo());
             return true;
             
         } catch (Exception e) {
-            System.out.println("   ❌ Error reparando producto " + paquete.getId() + ": " + e.getMessage());
+            System.out.println("   Error reparando producto " + paquete.getId() + ": " + e.getMessage());
             return false;
         }
     }
@@ -376,11 +371,11 @@ public class IntelligentRepairOperator extends AbstractOperator implements Opera
                 solucion.getOcupacionVuelos().put(vuelo.getNumeroVuelo(), vuelo.getPaquetesReservados());
             }
             
-            System.out.println("   ✅ Producto " + paquete.getId() + " reparado en ruta con " + vuelos.size() + " escalas");
+            System.out.println("   Producto " + paquete.getId() + " reparado en ruta con " + vuelos.size() + " escalas");
             return true;
             
         } catch (Exception e) {
-            System.out.println("   ❌ Error reparando producto " + paquete.getId() + " en ruta multi-escalas: " + e.getMessage());
+            System.out.println("   Error reparando producto " + paquete.getId() + " en ruta multi-escalas: " + e.getMessage());
             return false;
         }
     }

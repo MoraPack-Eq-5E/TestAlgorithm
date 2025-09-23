@@ -35,8 +35,8 @@ public class ParserPedidos {
         try (BufferedReader reader = new BufferedReader(new FileReader(rutaArchivo))) {
             String linea;
             
-            System.out.println("📁 Parseando archivo: " + rutaArchivo);
-            System.out.println("📋 Formato esperado: " + FORMATO_ESPERADO);
+            System.out.println("Parseando archivo: " + rutaArchivo);
+            System.out.println("Formato esperado: " + FORMATO_ESPERADO);
             System.out.println("=" .repeat(60));
             
             while ((linea = reader.readLine()) != null) {
@@ -52,21 +52,21 @@ public class ParserPedidos {
                     Pedido pedido = Pedido.crearDesdeArchivo(linea, rutaArchivo, numeroLinea);
                     pedidos.add(pedido);
                     
-                    System.out.println("✅ Línea " + numeroLinea + ": " + pedido.toString());
+                    System.out.println("Línea " + numeroLinea + ": " + pedido.toString());
                     
                 } catch (IllegalArgumentException e) {
-                    System.err.println("❌ Error en línea " + numeroLinea + ": " + e.getMessage());
+                    System.err.println("Error en línea " + numeroLinea + ": " + e.getMessage());
                     System.err.println("   Línea: " + linea);
                 }
             }
             
         } catch (IOException e) {
-            System.err.println("❌ Error al leer el archivo: " + e.getMessage());
+            System.err.println("Error al leer el archivo: " + e.getMessage());
             return new ArrayList<>();
         }
         
         System.out.println("=" .repeat(60));
-        System.out.println("📊 Resumen del parsing:");
+        System.out.println("Resumen del parsing:");
         System.out.println("   Total de líneas procesadas: " + numeroLinea);
         System.out.println("   Pedidos válidos parseados: " + pedidos.size());
         System.out.println("   Errores encontrados: " + (numeroLinea - pedidos.size()));
@@ -126,11 +126,11 @@ public class ParserPedidos {
             return;
         }
         
-        System.out.println("\n📊 REPORTE DETALLADO DE PEDIDOS");
+        System.out.println("\nREPORTE DETALLADO DE PEDIDOS");
         System.out.println("=" .repeat(80));
         
         // Estadísticas generales
-        System.out.println("📈 Estadísticas Generales:");
+        System.out.println("Estadísticas Generales:");
         System.out.println("   Total de pedidos: " + pedidos.size());
         
         // Agrupar por cliente
@@ -155,7 +155,7 @@ public class ParserPedidos {
         int maxProductos = pedidos.stream().mapToInt(Pedido::getCantidadProductosMPE).max().orElse(0);
         int minProductos = pedidos.stream().mapToInt(Pedido::getCantidadProductosMPE).min().orElse(0);
         
-        System.out.println("\n📦 Estadísticas de Productos:");
+        System.out.println("\nEstadísticas de Productos:");
         System.out.println("   Total de productos: " + totalProductos);
         System.out.println("   Promedio por pedido: " + promedioProductos);
         System.out.println("   Máximo por pedido: " + maxProductos);
@@ -218,7 +218,7 @@ public class ParserPedidos {
         @Override
         public String toString() {
             return String.format("Validación: %s | Líneas: %d | Válidas: %d | Errores: %d", 
-                               valido ? "✅ VÁLIDO" : "❌ INVÁLIDO", 
+                               valido ? "VÁLIDO" : "INVÁLIDO", 
                                lineasProcesadas, lineasValidas, lineasConError);
         }
     }
@@ -228,7 +228,7 @@ public class ParserPedidos {
      */
     public static void main(String[] args) {
         if (args.length == 0) {
-            System.out.println("🔧 ParserPedidos - Uso:");
+            System.out.println("ParserPedidos - Uso:");
             System.out.println("   java ParserPedidos <ruta_archivo>");
             System.out.println("   java ParserPedidos validar <ruta_archivo>");
             System.out.println("\n📋 Formato esperado: " + FORMATO_ESPERADO);
@@ -241,12 +241,12 @@ public class ParserPedidos {
         
         if ("validar".equals(comando)) {
             // Solo validar el archivo
-            System.out.println("🔍 Validando archivo: " + rutaArchivo);
+            System.out.println("Validando archivo: " + rutaArchivo);
             ResultadoValidacion resultado = validarArchivo(rutaArchivo);
             System.out.println(resultado);
             
             if (!resultado.isValido()) {
-                System.out.println("\n❌ Errores encontrados:");
+                System.out.println("\nErrores encontrados:");
                 for (String error : resultado.getErrores()) {
                     System.out.println("   " + error);
                 }

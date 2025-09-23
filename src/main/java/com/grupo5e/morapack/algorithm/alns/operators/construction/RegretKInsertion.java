@@ -50,7 +50,7 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
         List<String> paquetesPendientes = new ArrayList<>(paquetesRemovidos);
         
         // Debug: mostrar paquetes a insertar
-        System.out.println("   🔧 Regret" + k + "Insertion: Insertando " + paquetesPendientes.size() + " paquetes");
+        System.out.println("   Regret" + k + "Insertion: Insertando " + paquetesPendientes.size() + " paquetes");
         
         // Algoritmo Regret-k: insertar paquetes uno por uno usando regret
         int paquetesInsertados = 0;
@@ -65,12 +65,12 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
                 paquetesInsertados++;
             } else {
                 // Si no se puede insertar ningún paquete, terminar
-                System.out.println("   ⚠️  Regret" + k + "Insertion: No se pudo insertar más paquetes");
+                System.out.println("   Regret" + k + "Insertion: No se pudo insertar más paquetes");
                 break;
             }
         }
         
-        System.out.println("   ✅ Regret" + k + "Insertion: Insertados " + paquetesInsertados + " paquetes");
+        System.out.println("   Regret" + k + "Insertion: Insertados " + paquetesInsertados + " paquetes");
         return solucionTemporal;
     }
     
@@ -188,7 +188,7 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
         List<InserciónPosible> inserciones = calcularInsercionesPosibles(solucion, productoId, contexto);
         
         if (inserciones.isEmpty()) {
-            System.out.println("   ⚠️  No hay inserciones posibles para " + productoId);
+            System.out.println("   No hay inserciones posibles para " + productoId);
             return;
         }
         
@@ -202,7 +202,7 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
             .orElse(null);
         
         if (producto == null) {
-            System.out.println("   ❌ Producto " + productoId + " no encontrado");
+            System.out.println("   Producto " + productoId + " no encontrado");
             return;
         }
         
@@ -219,7 +219,7 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
             // Actualizar la solución
             actualizarSolucionConProducto(solucion, producto, vuelo);
         } else {
-            System.out.println("   ❌ Vuelo " + mejorInsercion.rutaId + " no encontrado");
+            System.out.println("   Vuelo " + mejorInsercion.rutaId + " no encontrado");
         }
     }
     
@@ -231,7 +231,7 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
         try {
             // Verificar capacidad del vuelo
             if (vuelo.getPaquetesReservados() >= vuelo.getCapacidadMaxima()) {
-                System.out.println("   ⚠️  Vuelo " + vuelo.getNumeroVuelo() + " sin capacidad para " + producto.getId());
+                System.out.println("   Vuelo " + vuelo.getNumeroVuelo() + " sin capacidad para " + producto.getId());
                 return;
             }
             
@@ -242,10 +242,10 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
             producto.actualizarUbicacion(vuelo.getAeropuertoDestino());
             producto.setEstado(com.grupo5e.morapack.core.enums.EstadoGeneral.EN_TRANSITO);
             
-            System.out.println("   ✅ Producto " + producto.getId() + " insertado en vuelo " + vuelo.getNumeroVuelo());
+            System.out.println("   Producto " + producto.getId() + " insertado en vuelo " + vuelo.getNumeroVuelo());
             
         } catch (Exception e) {
-            System.out.println("   ❌ Error insertando producto " + producto.getId() + " en vuelo: " + e.getMessage());
+            System.out.println("   Error insertando producto " + producto.getId() + " en vuelo: " + e.getMessage());
         }
     }
     

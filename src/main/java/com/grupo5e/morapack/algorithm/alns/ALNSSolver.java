@@ -5,6 +5,7 @@ import com.grupo5e.morapack.algorithm.alns.operators.OperadorConstruccion;
 import com.grupo5e.morapack.algorithm.alns.operators.OperadorDestruccion;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.ConstruccionInteligente;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.ConstruccionEstrategia;
+import com.grupo5e.morapack.algorithm.alns.operators.construction.ConstruccionMultiDepot;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.RegretKInsertion;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.CapacityRebalancingOperator;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.IntelligentRepairOperator;
@@ -47,6 +48,14 @@ public class ALNSSolver {
     private List<Double> historialFitness;
     private Random random;
     
+    // Restart mechanism (literatura estándar ALNS)
+    private int iteracionesSinMejora;
+    private final int MAX_ITERACIONES_SIN_MEJORA = 25; // Ropke & Pisinger recomiendan 15-30
+    
+    // Gestión de memoria (literatura estándar)
+    private final int MAX_SOLUCIONES_MEMORIA = 1000; // Limitar memoria visitada
+    private final int LIMPIAR_MEMORIA_CADA = 50; // Limpiar cada N iteraciones
+    
     // Sistema de tracking de soluciones visitadas
     private Map<Integer, Solucion> solucionesVisitadas;
     
@@ -70,6 +79,7 @@ public class ALNSSolver {
         this.solucionesVisitadas = new HashMap<>();
         this.random = new Random();
         this.detectorProblematicos = new ProblematicPackageDetector();
+        this.iteracionesSinMejora = 0;
         
         inicializarOperadores();
     }
@@ -100,6 +110,7 @@ public class ALNSSolver {
         }
         
         // Operadores de construcción avanzados
+        operadoresConstruccion.add(new ConstruccionMultiDepot());  // Constructor ALNS puro multi-depot
         operadoresConstruccion.add(new ConstruccionInteligente());  // Constructor principal
         operadoresConstruccion.add(new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ));
         operadoresConstruccion.add(new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.MENOR_COSTO));
@@ -140,6 +151,25 @@ public class ALNSSolver {
         this.validador = new ValidadorRestricciones(aeropuertos, vuelos, continentes);
     }
     
+    /**
+     * Filtra operadores de construcción compatibles con el tipo de problema
+     */
+    private List<OperadorConstruccion> obtenerOperadoresCompatibles() {
+        // Verificar si hay paquetes sin origen definido (problema multi-depot)
+        boolean hayPaquetesSinOrigen = contextoProblema.getTodosPaquetes().stream()
+                                                      .anyMatch(p -> p.getAeropuertoOrigen() == null);
+        
+        if (hayPaquetesSinOrigen) {
+            // Solo usar operadores que pueden manejar paquetes sin origen
+            return operadoresConstruccion.stream()
+                    .filter(op -> op instanceof ConstruccionMultiDepot)
+                    .collect(java.util.stream.Collectors.toList());
+        } else {
+            // Usar todos los operadores normalmente
+            return new ArrayList<>(operadoresConstruccion);
+        }
+    }
+    
     public Solucion resolver() {
         // Generar solución inicial
         solucionActual = generarSolucionInicial();
@@ -160,8 +190,8 @@ public class ALNSSolver {
             Solucion nuevaSolucion = opConstruccion.construir(solucionTemporal, paquetesRemovidos, 
                                                              contextoProblema, validador);
             
-            // Validar la nueva solución
-            validador.validarSolucion(nuevaSolucion);
+            // Validar la nueva solución (incluyendo validación temporal)
+            validador.validarSolucionCompleta(nuevaSolucion);
             
             // Recalcular fitness con penalización por paquetes no ruteados
             recalcularFitnessConContexto(nuevaSolucion);
@@ -176,10 +206,14 @@ public class ALNSSolver {
                 // Actualizar mejor solución
                 if (nuevaSolucion.esMejorQue(mejorSolucion)) {
                     mejorSolucion = nuevaSolucion.copiar();
+                    iteracionesSinMejora = 0; // Reset contador (literatura estándar)
+                } else {
+                    iteracionesSinMejora++;
                 }
             } else {
                 // Registrar fallos para paquetes no ruteados
                 registrarFallosPaquetesNoRuteados(nuevaSolucion, opConstruccion.getNombre());
+                iteracionesSinMejora++; // Incrementar también cuando se rechaza
             }
             
             // Actualizar scores de operadores
@@ -190,6 +224,16 @@ public class ALNSSolver {
             
             // Enfriar temperatura
             enfriarTemperatura();
+            
+            // Restart mechanism (Ropke & Pisinger 2006)
+            if (iteracionesSinMejora >= MAX_ITERACIONES_SIN_MEJORA) {
+                ejecutarRestart();
+            }
+            
+            // Gestión de memoria periódica (literatura estándar)
+            if (iteracionActual % LIMPIAR_MEMORIA_CADA == 0) {
+                limpiarMemoriaVisitada();
+            }
             
             // Registrar progreso
             historialFitness.add(solucionActual.getFitness());
@@ -210,13 +254,62 @@ public class ALNSSolver {
         return mejorSolucion;
     }
     
-    private Solucion generarSolucionInicial() {
-        // Generación voraz inicial: asignar ruta más corta a cada paquete
-        ConstruccionEstrategia constructor = new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ);
+    /**
+     * Ejecuta restart desde la mejor solución conocida (Ropke & Pisinger 2006)
+     */
+    private void ejecutarRestart() {
+        // Restart desde mejor solución conocida
+        solucionActual = mejorSolucion.copiar();
         
+        // Reinicializar temperatura (literatura estándar)
+        temperaturaActual = temperaturaInicial;
+        
+        // Limpiar memoria para permitir re-exploración
+        solucionesVisitadas.clear();
+        
+        // Reset contador
+        iteracionesSinMejora = 0;
+        
+        System.out.printf("🔄 Restart ejecutado en iteración %d (fitness: %.2f)%n", 
+                         iteracionActual, mejorSolucion.getFitness());
+    }
+    
+    /**
+     * Limpia memoria de soluciones visitadas para evitar memory leaks (literatura estándar)
+     */
+    private void limpiarMemoriaVisitada() {
+        if (solucionesVisitadas.size() > MAX_SOLUCIONES_MEMORIA) {
+            // Mantener solo las mejores soluciones (50% de la memoria)
+            List<Map.Entry<Integer, Solucion>> solucionesOrdenadas = 
+                solucionesVisitadas.entrySet().stream()
+                    .sorted(Map.Entry.<Integer, Solucion>comparingByValue(
+                        (s1, s2) -> Double.compare(s1.getFitness(), s2.getFitness())))
+                    .limit(MAX_SOLUCIONES_MEMORIA / 2)
+                    .collect(java.util.stream.Collectors.toList());
+            
+            solucionesVisitadas.clear();
+            solucionesOrdenadas.forEach(entry -> 
+                solucionesVisitadas.put(entry.getKey(), entry.getValue()));
+        }
+    }
+    
+    private Solucion generarSolucionInicial() {
         List<String> todosPaquetes = contextoProblema.getTodosPaquetes().stream()
                                                    .map(Paquete::getId)
                                                    .toList();
+        
+        // Verificar si hay paquetes sin origen definido (multi-depot)
+        boolean hayPaquetesSinOrigen = contextoProblema.getTodosPaquetes().stream()
+                                                      .anyMatch(p -> p.getAeropuertoOrigen() == null);
+        
+        OperadorConstruccion constructor;
+        if (hayPaquetesSinOrigen) {
+            // Usar constructor multi-depot para paquetes sin origen definido
+            constructor = new ConstruccionMultiDepot();
+        } else {
+            // Usar constructor tradicional para paquetes con origen fijo
+            constructor = new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ);
+        }
         
         return constructor.construir(new Solucion(), todosPaquetes, contextoProblema, validador);
     }
@@ -228,7 +321,9 @@ public class ALNSSolver {
     }
     
     private OperadorConstruccion seleccionarOperadorConstruccion() {
-        return seleccionarOperadorPorPeso(operadoresConstruccion.stream()
+        // Usar solo operadores compatibles con el tipo de problema
+        List<OperadorConstruccion> operadoresCompatibles = obtenerOperadoresCompatibles();
+        return seleccionarOperadorPorPeso(operadoresCompatibles.stream()
                                                 .map(op -> (Object) op)
                                                 .toList());
     }
@@ -301,8 +396,8 @@ public class ALNSSolver {
     }
     
     private void enfriarTemperatura() {
-        ALNSConfig config = ALNSConfig.getInstance();
-        temperaturaActual *= config.getCoolingRate();
+        // CORRECCIÓN: Usar el parámetro del constructor, no el hardcoded
+        temperaturaActual *= factorEnfriamiento;
     }
     
     private void actualizarPesosOperadores() {
@@ -454,14 +549,8 @@ public class ALNSSolver {
      * Recalcula el fitness de una solución considerando el contexto del problema
      */
     private void recalcularFitnessConContexto(Solucion solucion) {
-        int totalPaquetes = contextoProblema.getTodosPaquetes().size();
-        double penalizacionPaquetesNoRuteados = solucion.calcularPenalizacionPaquetesNoRuteados(totalPaquetes);
-        
-        // Recalcular fitness con la penalización correcta
-        double fitnessBase = solucion.getCostoTotal() + solucion.getTiempoTotalHoras();
-        double penalizacionViolaciones = solucion.getViolacionesRestricciones() * 50.0 + 100.0;
-        
-        solucion.setFitness(fitnessBase + penalizacionViolaciones + penalizacionPaquetesNoRuteados);
+        // CORRECCIÓN: Usar el método estándar de la solución para consistencia
+        solucion.recalcularMetricas();
     }
     
     /**

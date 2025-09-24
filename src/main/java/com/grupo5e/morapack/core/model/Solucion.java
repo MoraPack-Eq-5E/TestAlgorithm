@@ -13,7 +13,7 @@ public class Solucion {
     private double tiempoTotalHoras;
     private int violacionesRestricciones;
     private boolean esFactible;
-    private double fitness; // Función objetivo
+    private double funcionObjetivo; // Función objetivo del negocio
     private Map<String, Integer> ocupacionVuelos; // numeroVuelo -> cantidad paquetes
     private Map<String, Integer> ocupacionAlmacenes; // codigoIATA -> cantidad paquetes
     
@@ -25,7 +25,7 @@ public class Solucion {
         this.tiempoTotalHoras = 0.0;
         this.violacionesRestricciones = 0;
         this.esFactible = true;
-        this.fitness = Double.MAX_VALUE;
+        this.funcionObjetivo = Double.MAX_VALUE;
     }
     
     public Solucion(Map<String, Ruta> rutasPaquetes) {
@@ -81,15 +81,15 @@ public class Solucion {
                 .max()
                 .orElse(0.0); // Tiempo máximo (makespan)
         
-        calcularFitness();
+        calcularFuncionObjetivo();
     }
     
-    private void calcularFitness() {
-        // Función objetivo mejorada con penalización gradual
+    private void calcularFuncionObjetivo() {
+        // Función objetivo del negocio: minimizar tiempo total + costos + penalizaciones
         double penalizacionViolaciones = calcularPenalizacionGradual();
         double penalizacionPaquetesNoRuteados = calcularPenalizacionPaquetesNoRuteados();
         
-        this.fitness = costoTotal + tiempoTotalHoras + penalizacionViolaciones + penalizacionPaquetesNoRuteados;
+        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penalizacionViolaciones + penalizacionPaquetesNoRuteados;
     }
     
     /**
@@ -170,7 +170,7 @@ public class Solucion {
     public boolean esMejorQue(Solucion otra) {
         if (this.esFactible && !otra.esFactible) return true;
         if (!this.esFactible && otra.esFactible) return false;
-        return this.fitness < otra.fitness;
+        return this.funcionObjetivo < otra.funcionObjetivo;
     }
     
     public double calcularPorcentajeUtilizacionVuelos() {
@@ -181,9 +181,19 @@ public class Solucion {
                 .orElse(0.0);
     }
     
+    // Métodos de acceso
+    public double getFuncionObjetivo() {
+        return funcionObjetivo;
+    }
+    
+    // Método legacy para compatibilidad
+    public double getFitness() {
+        return funcionObjetivo;
+    }
+    
     @Override
     public String toString() {
-        return String.format("Solucion[Paquetes: %d, Costo: %.2f, Tiempo: %.2f hrs, Factible: %s, Fitness: %.2f]", 
-                           rutasPaquetes.size(), costoTotal, tiempoTotalHoras, esFactible, fitness);
+        return String.format("Solucion[Paquetes: %d, Costo: %.2f, Tiempo: %.2f hrs, Factible: %s, FObjetivo: %.2f]", 
+                           rutasPaquetes.size(), costoTotal, tiempoTotalHoras, esFactible, funcionObjetivo);
     }
 }

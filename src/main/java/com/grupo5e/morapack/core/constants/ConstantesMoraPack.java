@@ -5,10 +5,10 @@ package com.grupo5e.morapack.core.constants;
  */
 public final class ConstantesMoraPack {
     
-    // Sedes de MoraPack
-    public static final String SEDE_LIMA = "LIM";
-    public static final String SEDE_BRUSELAS = "BRU"; 
-    public static final String SEDE_BAKU = "BAK";
+    // Sedes de MoraPack (códigos ICAO reales)
+    public static final String SEDE_LIMA = "SPIM";        // Lima, Perú
+    public static final String SEDE_BRUSELAS = "EBCI";    // Bruselas, Bélgica  
+    public static final String SEDE_BAKU = "UBBB";        // Baku, Azerbaiyán
     public static final String[] SEDES_MORAPACK = {SEDE_LIMA, SEDE_BRUSELAS, SEDE_BAKU};
     
     // Plazos de entrega (en días)

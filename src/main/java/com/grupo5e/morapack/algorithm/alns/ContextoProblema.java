@@ -89,6 +89,13 @@ public class ContextoProblema {
         return aeropuertoAContinente.get(codigoIATA);
     }
     
+    /**
+     * Alias para getContinentePorAeropuerto - usado por SedeSelector
+     */
+    public String obtenerContinente(String codigoIATA) {
+        return getContinentePorAeropuerto(codigoIATA);
+    }
+    
     public boolean sonMismoContinente(String aeropuerto1, String aeropuerto2) {
         String continente1 = getContinentePorAeropuerto(aeropuerto1);
         String continente2 = getContinentePorAeropuerto(aeropuerto2);

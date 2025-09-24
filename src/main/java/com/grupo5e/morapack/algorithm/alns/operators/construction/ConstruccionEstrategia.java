@@ -8,6 +8,10 @@ import com.grupo5e.morapack.algorithm.alns.ContextoProblema;
 import java.util.*;
 
 /**
+ * Constructor unificado con randomización para diversificación (Shaw 1998)
+ */
+
+/**
  * Constructor unificado que reemplaza los 4 constructores duplicados (Voraz, MenorCosto, MenorTiempo, Balanceado).
  * Usa patrón Strategy para diferentes criterios de selección de ruta.
  */
@@ -16,6 +20,10 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
     private final EstrategiaSeleccion estrategia;
     private final String nombre;
     private final String descripcion;
+    
+    // Randomización para diversificación (literatura ALNS estándar)
+    private static final Random random = new Random();
+    private static final double NOISE_FACTOR = 0.15; // Shaw (1998): 0.1-0.2 óptimo
     
     // Estrategias disponibles
     public enum TipoEstrategia {
@@ -59,6 +67,8 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
             Ruta mejorRuta = estrategia.seleccionarMejorRuta(paqueteId, paquete, contexto, validador, nuevaSolucion);
             
             if (mejorRuta != null) {
+                // ¡BUG FIX! Reservar capacidad en los vuelos ANTES de agregar la ruta
+                reservarCapacidadEnVuelos(mejorRuta, contexto);
                 nuevaSolucion.agregarRuta(paqueteId, mejorRuta);
                 nuevaSolucion.recalcularMetricas();
             } else {
@@ -183,8 +193,13 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
             
             List<Ruta> rutasFactibles = ConstruccionEstrategia.generarRutasFactibles(paquete, contexto);
             
+            // Randomización para diversificación (Shaw 1998)
             return rutasFactibles.stream()
-                .min(Comparator.comparing(Ruta::getCostoTotal))
+                .min((r1, r2) -> {
+                    double costo1 = r1.getCostoTotal() * (1.0 + random.nextGaussian() * NOISE_FACTOR);
+                    double costo2 = r2.getCostoTotal() * (1.0 + random.nextGaussian() * NOISE_FACTOR);
+                    return Double.compare(costo1, costo2);
+                })
                 .orElse(null);
         }
         
@@ -251,10 +266,16 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
             
             List<Ruta> rutasFactibles = ConstruccionEstrategia.generarRutasFactibles(paquete, contexto);
             
+            // Randomización para diversificación (Shaw 1998) 
             return rutasFactibles.stream()
                 .min((r1, r2) -> {
                     double score1 = PESO_COSTO * r1.getCostoTotal() + PESO_TIEMPO * r1.getTiempoTotalHoras();
                     double score2 = PESO_COSTO * r2.getCostoTotal() + PESO_TIEMPO * r2.getTiempoTotalHoras();
+                    
+                    // Agregar ruido gaussiano para exploración
+                    score1 *= (1.0 + random.nextGaussian() * NOISE_FACTOR);
+                    score2 *= (1.0 + random.nextGaussian() * NOISE_FACTOR);
+                    
                     return Double.compare(score1, score2);
                 })
                 .orElse(null);
@@ -412,5 +433,52 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
     private static boolean esRutaBasicamenteFactible(Ruta ruta) {
         return ruta != null && !ruta.getSegmentos().isEmpty() && 
                ruta.getCostoTotal() > 0 && ruta.getTiempoTotalHoras() > 0;
+    }
+    
+    /**
+     * CRÍTICO: Reserva capacidad en todos los vuelos de una ruta
+     * Sin esto, las capacidades nunca se actualizan y siempre se permiten rutas directas
+     */
+    private void reservarCapacidadEnVuelos(Ruta ruta, ContextoProblema contexto) {
+        for (SegmentoRuta segmento : ruta.getSegmentos()) {
+            String numeroVuelo = segmento.getNumeroVuelo();
+            
+            // Buscar el vuelo en el contexto
+            for (Vuelo vuelo : contexto.getTodosVuelos()) {
+                if (vuelo.getNumeroVuelo().equals(numeroVuelo)) {
+                    try {
+                        vuelo.reservarPaquetes(1); // Reservar 1 paquete
+                        // System.out.println("   [CAPACIDAD] Reservado en " + numeroVuelo + 
+                        //                  " (" + vuelo.getPaquetesReservados() + "/" + vuelo.getCapacidadMaxima() + ")");
+                    } catch (IllegalStateException e) {
+                        System.out.println("   [ERROR] Vuelo " + numeroVuelo + " LLENO: " + e.getMessage());
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // ¡NUEVO! Actualizar ocupación de almacenes en aeropuertos destino
+        actualizarOcupacionAlmacenes(ruta, contexto);
+    }
+    
+    /**
+     * NUEVO: Actualiza la ocupación de almacenes en aeropuertos destino
+     */
+    private void actualizarOcupacionAlmacenes(Ruta ruta, ContextoProblema contexto) {
+        for (SegmentoRuta segmento : ruta.getSegmentos()) {
+            String aeropuertoDestino = segmento.getAeropuertoDestino();
+            Aeropuerto aeropuerto = contexto.getAeropuerto(aeropuertoDestino);
+            
+            if (aeropuerto != null) {
+                try {
+                    aeropuerto.agregarPaquetes(1); // Incrementar ocupación del almacén
+                    // System.out.println("   [ALMACEN] " + aeropuertoDestino + 
+                    //                  " (" + aeropuerto.getPaquetesEnAlmacen() + "/" + aeropuerto.getCapacidadAlmacen() + ")");
+                } catch (IllegalStateException e) {
+                    System.out.println("   [ERROR] Almacén " + aeropuertoDestino + " LLENO: " + e.getMessage());
+                }
+            }
+        }
     }
 }

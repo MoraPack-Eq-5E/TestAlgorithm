@@ -9,11 +9,11 @@ import java.util.*;
 public class ALNSConfig {
     private static ALNSConfig instance;
     
-    private double startTempControlParam = 0.2;
-    private double bigOmega = 0.15;
-    private double minTempPercent = 0.005;
-    private double coolingRate = 0.995;
-    private double epsilon = 1e-6;
+    private double startTempControlParam = 0.3;  // Aumentado para más exploración
+    private double bigOmega = 0.2;                 // Aumentado para más aceptación inicial
+    private double minTempPercent = 0.01;          // Aumentado para no enfriar tanto
+    private double coolingRate = 0.998;            // Más lento para mantener exploración
+    private double epsilon = 1e-4;                 // Menos estricto
     
     private double reactionFactor = 0.15;
     private int updateInterval = 30;

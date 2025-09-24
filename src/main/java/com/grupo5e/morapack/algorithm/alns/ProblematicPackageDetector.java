@@ -16,6 +16,7 @@ public class ProblematicPackageDetector {
     private static final double FACTOR_DIFICULTAD_DISTANCIA = 0.001;
     private static final double FACTOR_DIFICULTAD_CAPACIDAD = 0.5;
     
+    
     public static class FalloInfo {
         private final long timestamp;
         private final String motivo;
@@ -76,7 +77,8 @@ public class ProblematicPackageDetector {
         historialFallos.computeIfAbsent(paqueteId, k -> new ArrayList<>()).add(fallo);
         actualizarEstadisticas(paqueteId, fallo);
         
-        System.out.println("Fallo registrado para " + paqueteId + ": " + motivo + " (Operador: " + operadorUsado + ")");
+        // Log silenciado para evitar spam
+        // System.out.println("Fallo registrado para " + paqueteId + ": " + motivo + " (Operador: " + operadorUsado + ")");
     }
     
     private void actualizarEstadisticas(String paqueteId, FalloInfo fallo) {
@@ -274,4 +276,5 @@ public class ProblematicPackageDetector {
         
         System.out.println("=============================================");
     }
+    
 }

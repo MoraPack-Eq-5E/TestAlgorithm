@@ -25,9 +25,9 @@ public class TimeOrientedRemoval extends AbstractOperator implements OperadorDes
     
     @Override
     public List<String> destruir(Solucion solucion, int cantidadRemover) {
-        // Limitar la cantidad de paquetes a remover para evitar ser demasiado agresivo
+        // CORRECCIÓN: Permitir más paquetes pero con límite razonable
         int paquetesDisponibles = solucion.getRutasPaquetes().size();
-        int cantidadLimitada = Math.min(cantidadRemover, Math.max(1, Math.min(3, paquetesDisponibles / 5)));
+        int cantidadLimitada = Math.min(cantidadRemover, Math.max(1, Math.min(10, paquetesDisponibles / 10)));
         
         // Usar la implementación con contexto
         return destruirConContexto(solucion, cantidadLimitada, null);

@@ -89,6 +89,13 @@ public class ContextoProblema {
         return aeropuertoAContinente.get(codigoIATA);
     }
     
+    /**
+     * Alias para getContinentePorAeropuerto - usado por SedeSelector
+     */
+    public String obtenerContinente(String codigoIATA) {
+        return getContinentePorAeropuerto(codigoIATA);
+    }
+    
     public boolean sonMismoContinente(String aeropuerto1, String aeropuerto2) {
         String continente1 = getContinentePorAeropuerto(aeropuerto1);
         String continente2 = getContinentePorAeropuerto(aeropuerto2);
@@ -127,6 +134,11 @@ public class ContextoProblema {
      * Encuentra la ruta más corta entre dos aeropuertos usando BFS
      */
     public List<String> encontrarRutaMasCorta(String origen, String destino) {
+        // CORRECCIÓN: Verificar que origen y destino no sean null
+        if (origen == null || destino == null) {
+            return Collections.emptyList();
+        }
+        
         if (origen.equals(destino)) {
             return Collections.singletonList(origen);
         }

@@ -48,7 +48,8 @@ public class SegmentoRuta {
     
     public void programarVuelo(LocalDateTime fechaSalida) {
         this.fechaSalida = fechaSalida;
-        this.fechaLlegada = fechaSalida.plusHours((long)duracionHoras);
+        long minutos = Math.round(duracionHoras * 60.0); // conserva decimales
+        this.fechaLlegada = fechaSalida.plusMinutes(minutos);
     }
     
     public boolean estaEnTiempo() {
@@ -67,15 +68,16 @@ public class SegmentoRuta {
     }
     
     public SegmentoRuta copiar() {
-        SegmentoRuta copia = new SegmentoRuta(
-            this.id + "_copia", 
-            this.aeropuertoOrigen, 
-            this.aeropuertoDestino, 
-            this.numeroVuelo, 
-            this.mismoContinente
-        );
+        SegmentoRuta copia = new SegmentoRuta();
+        copia.id = this.id + "_copia";
+        copia.aeropuertoOrigen = this.aeropuertoOrigen;
+        copia.aeropuertoDestino = this.aeropuertoDestino;
+        copia.numeroVuelo = this.numeroVuelo;
         copia.fechaSalida = this.fechaSalida;
         copia.fechaLlegada = this.fechaLlegada;
+        copia.duracionHoras = this.duracionHoras;   // <-- copiar exacto
+        copia.costo = this.costo;                   // <-- copiar exacto
+        copia.mismoContinente = this.mismoContinente;
         copia.estado = this.estado;
         copia.paquetesEnSegmento = this.paquetesEnSegmento;
         return copia;

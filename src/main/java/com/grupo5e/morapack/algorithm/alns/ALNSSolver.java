@@ -5,6 +5,7 @@ import com.grupo5e.morapack.algorithm.alns.operators.OperadorConstruccion;
 import com.grupo5e.morapack.algorithm.alns.operators.OperadorDestruccion;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.ConstruccionInteligente;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.ConstruccionEstrategia;
+import com.grupo5e.morapack.algorithm.alns.operators.construction.ConstruccionMultiDepot;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.RegretKInsertion;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.CapacityRebalancingOperator;
 import com.grupo5e.morapack.algorithm.alns.operators.construction.IntelligentRepairOperator;
@@ -45,10 +46,19 @@ public class ALNSSolver {
     private double temperaturaActual;
     private int iteracionActual;
     private List<Double> historialFitness;
+    private List<Double> historialMejorFitness; // Historial del mejor fitness para convergencia
     private Random random;
     
+    // Restart mechanism (literatura estándar ALNS)
+    private int iteracionesSinMejora;
+    private final int MAX_ITERACIONES_SIN_MEJORA = 50; // Aumentado para problemas complejos
+    
+    // Gestión de memoria (literatura estándar)
+    private final int MAX_SOLUCIONES_MEMORIA = 1000; // Limitar memoria visitada
+    private final int LIMPIAR_MEMORIA_CADA = 50; // Limpiar cada N iteraciones
+    
     // Sistema de tracking de soluciones visitadas
-    private Map<Integer, Solucion> solucionesVisitadas;
+    private Map<String, Solucion> solucionesVisitadas;
     
     // Validador de restricciones
     private ValidadorRestricciones validador;
@@ -67,9 +77,11 @@ public class ALNSSolver {
         this.operadoresConstruccion = new ArrayList<>();
         this.pesosOperadores = new HashMap<>();
         this.historialFitness = new ArrayList<>();
+        this.historialMejorFitness = new ArrayList<>();
         this.solucionesVisitadas = new HashMap<>();
         this.random = new Random();
         this.detectorProblematicos = new ProblematicPackageDetector();
+        this.iteracionesSinMejora = 0;
         
         inicializarOperadores();
     }
@@ -99,10 +111,14 @@ public class ALNSSolver {
                 config.getTimeOrientedJungwirthWeightStartTimeIinSolution()));
         }
         
-        // Operadores de construcción avanzados
-        operadoresConstruccion.add(new ConstruccionInteligente());  // Constructor principal
+        // LITERATURA ALNS ESTÁNDAR: Solo operadores básicos y probados
         operadoresConstruccion.add(new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ));
         operadoresConstruccion.add(new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.MENOR_COSTO));
+        operadoresConstruccion.add(new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.BALANCEADA));
+        
+        // REMOVER operadores custom que pueden causar problemas
+        // operadoresConstruccion.add(new ConstruccionMultiDepot());  // CUSTOM - puede causar overfitting
+        // operadoresConstruccion.add(new ConstruccionInteligente());  // CUSTOM - demasiado complejo
         
         // Nuevos operadores Regret-k
         if (config.isUseNRegret2()) {
@@ -140,6 +156,39 @@ public class ALNSSolver {
         this.validador = new ValidadorRestricciones(aeropuertos, vuelos, continentes);
     }
     
+    /**
+     * Filtra operadores de construcción compatibles con el tipo de problema
+     */
+    private List<OperadorConstruccion> obtenerOperadoresCompatibles() {
+        // CORRECCIÓN: Mejorar selección compatible para evitar estancamiento
+        List<OperadorConstruccion> compatibles = new ArrayList<>();
+        
+        // Verificar si hay paquetes sin origen definido (problema multi-depot)
+        boolean hayPaquetesSinOrigen = contextoProblema.getTodosPaquetes().stream()
+                                                      .anyMatch(p -> p.getAeropuertoOrigen() == null);
+        
+        if (hayPaquetesSinOrigen) {
+            // Incluir operadores que pueden manejar paquetes sin origen
+            for (OperadorConstruccion op : operadoresConstruccion) {
+                if (op instanceof ConstruccionMultiDepot || 
+                    op instanceof RegretKInsertion || 
+                    op instanceof ConstruccionInteligente) {
+                    compatibles.add(op);
+                }
+            }
+            
+            // Si no hay operadores compatibles, usar al menos uno básico
+            if (compatibles.isEmpty()) {
+                compatibles.addAll(operadoresConstruccion);
+            }
+        } else {
+            // Usar todos los operadores normalmente
+            compatibles.addAll(operadoresConstruccion);
+        }
+        
+        return compatibles;
+    }
+    
     public Solucion resolver() {
         // Generar solución inicial
         solucionActual = generarSolucionInicial();
@@ -152,34 +201,90 @@ public class ALNSSolver {
             
             // Fase de destrucción (opera sobre la copia)
             OperadorDestruccion opDestruccion = seleccionarOperadorDestruccion();
-            List<String> paquetesRemovidos = opDestruccion.destruir(solucionTemporal, 
-                                                (int)(contextoProblema.getTodosPaquetes().size() * porcentajeDestruccion));
             
-            // Fase de construcción (reconstruye la solución completa)
+            // CORRECCIÓN: Calcular tamaño de destrucción más conservador
+            int paquetesRuteados = solucionTemporal.getCantidadPaquetes();
+            int qMin = 1; // Mínimo 1 paquete
+            int qMax = Math.max(1, (int)(paquetesRuteados * 0.15)); // Máximo 15% de paquetes ruteados (más conservador)
+            
+            // LITERATURA ALNS: Jitter más conservador para evitar destrucción excesiva
+            double jitterMin = 0.02; // 2% - mucho más conservador
+            double jitterMax = 0.10; // 10% - menos agresivo
+            double porcentajeConJitter = jitterMin + random.nextDouble() * (jitterMax - jitterMin);
+            
+            int q = Math.max(qMin, Math.min(qMax, (int)(paquetesRuteados * porcentajeConJitter)));
+            
+            // LOG: Estado antes de destruir
+            System.out.printf(
+                "Iter %d | opD=%s | T=%.3f | q=%d | actualF=%.3f | mejorF=%.3f | ruteados=%d/%d%n",
+                iteracionActual,
+                opDestruccion.getNombre(),
+                temperaturaActual,
+                q,
+                solucionActual.getFitness(),
+                mejorSolucion.getFitness(),
+                solucionActual.getCantidadPaquetes(),
+                contextoProblema.getTodosPaquetes().size()
+            );
+            
+            List<String> paquetesRemovidos = opDestruccion.destruir(solucionTemporal, q);
+            
+            // LOG: Estado tras destruir
+            System.out.printf("   -> tras destruir: paquetes=%d, vuelos=%d, hash=%d%n",
+                solucionTemporal.getCantidadPaquetes(),
+                solucionTemporal.getOcupacionVuelos().size(),
+                solucionTemporal.hashCode()
+            );
+            
+            // Fase de construcción (reconstruye sobre la solución ya destruida)
             OperadorConstruccion opConstruccion = seleccionarOperadorConstruccion();
             Solucion nuevaSolucion = opConstruccion.construir(solucionTemporal, paquetesRemovidos, 
                                                              contextoProblema, validador);
             
-            // Validar la nueva solución
-            validador.validarSolucion(nuevaSolucion);
+            // LOG: Estado tras construir (sin fitness - se calcula después)
+            System.out.printf("   -> tras reparar: paquetes=%d, vuelos=%d, hash=%d, viol=%d, factible=%s%n",
+                nuevaSolucion.getCantidadPaquetes(),
+                nuevaSolucion.getOcupacionVuelos().size(),
+                nuevaSolucion.hashCode(),
+                nuevaSolucion.getViolacionesRestricciones(),
+                nuevaSolucion.isEsFactible()
+            );
             
-            // Recalcular fitness con penalización por paquetes no ruteados
-            recalcularFitnessConContexto(nuevaSolucion);
+            // Validar la nueva solución (incluyendo validación temporal)
+            validador.validarSolucionCompleta(nuevaSolucion);
+            
+            // LITERATURA ALNS: Calcular fitness UNA SOLA VEZ después de reparación
+            int N = contextoProblema.getTodosPaquetes().size();
+            nuevaSolucion.calcularFitness(N);
+            
+            double actualF = solucionActual.getFitness();
+            double newF = nuevaSolucion.getFitness();
+            double delta = newF - actualF;
             
             // Determinar score basado en el resultado
             double sigmaScore = determinarScoreOperadores(nuevaSolucion);
             
             // Criterio de aceptación (Simulated Annealing)
-            if (aceptarSolucion(nuevaSolucion)) {
+            boolean aceptada = aceptarSolucion(nuevaSolucion);
+            System.out.printf("   -> actualF=%.3f | newF=%.3f | delta=%.3f | prob=%.6f | aceptada=%s%n",
+                actualF, newF, delta, Math.exp(-Math.min(delta, temperaturaActual * 10) / temperaturaActual), 
+                aceptada ? "SI" : "NO"
+            );
+            
+            if (aceptada) {
                 solucionActual = nuevaSolucion;
                 
                 // Actualizar mejor solución
                 if (nuevaSolucion.esMejorQue(mejorSolucion)) {
                     mejorSolucion = nuevaSolucion.copiar();
+                    iteracionesSinMejora = 0; // Reset contador (literatura estándar)
+                } else {
+                    iteracionesSinMejora++;
                 }
             } else {
                 // Registrar fallos para paquetes no ruteados
                 registrarFallosPaquetesNoRuteados(nuevaSolucion, opConstruccion.getNombre());
+                iteracionesSinMejora++; // Incrementar también cuando se rechaza
             }
             
             // Actualizar scores de operadores
@@ -191,8 +296,19 @@ public class ALNSSolver {
             // Enfriar temperatura
             enfriarTemperatura();
             
+            // Restart mechanism (Ropke & Pisinger 2006)
+            if (iteracionesSinMejora >= MAX_ITERACIONES_SIN_MEJORA) {
+                ejecutarRestart();
+            }
+            
+            // Gestión de memoria periódica (literatura estándar)
+            if (iteracionActual % LIMPIAR_MEMORIA_CADA == 0) {
+                limpiarMemoriaVisitada();
+            }
+            
             // Registrar progreso
             historialFitness.add(solucionActual.getFitness());
+            historialMejorFitness.add(mejorSolucion.getFitness());
             
             // Mostrar progreso cada 100 iteraciones (solo si está habilitado el logging verbose)
             ALNSConfig config = ALNSConfig.getInstance();
@@ -210,77 +326,154 @@ public class ALNSSolver {
         return mejorSolucion;
     }
     
-    private Solucion generarSolucionInicial() {
-        // Generación voraz inicial: asignar ruta más corta a cada paquete
-        ConstruccionEstrategia constructor = new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ);
+    /**
+     * Ejecuta restart desde la mejor solución conocida (Ropke & Pisinger 2006)
+     */
+    private void ejecutarRestart() {
+        // Restart desde mejor solución conocida
+        solucionActual = mejorSolucion.copiar();
         
+        // Reinicializar temperatura (literatura estándar)
+        temperaturaActual = temperaturaInicial;
+        
+        // Limpiar memoria para permitir re-exploración
+        solucionesVisitadas.clear();
+        
+        // CORRECCIÓN: Resetear estadísticas ALNS por segmento
+        resetearEstadisticasOperadores();
+        
+        // Reset contador
+        iteracionesSinMejora = 0;
+        
+        System.out.printf("Restart ejecutado en iteración %d (fitness: %.2f)%n", 
+                         iteracionActual, mejorSolucion.getFitness());
+    }
+    
+    /**
+     * Resetea estadísticas de operadores (pesos, draws, etc.) para reiniciar aprendizaje
+     */
+    private void resetearEstadisticasOperadores() {
+        // CORRECCIÓN: Resetear estadísticas internas (PI/draws) de operadores
+        for (OperadorDestruccion op : operadoresDestruccion) {
+            if (op instanceof com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator) {
+                com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator abstractOp = 
+                    (com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator) op;
+                abstractOp.resetStats();
+                pesosOperadores.put(op.getNombre(), 1.0); // Peso inicial
+            }
+        }
+        
+        for (OperadorConstruccion op : operadoresConstruccion) {
+            if (op instanceof com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator) {
+                com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator abstractOp = 
+                    (com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator) op;
+                abstractOp.resetStats();
+                pesosOperadores.put(op.getNombre(), 1.0); // Peso inicial
+            }
+        }
+    }
+    
+    /**
+     * Limpia memoria de soluciones visitadas para evitar memory leaks (literatura estándar)
+     */
+    private void limpiarMemoriaVisitada() {
+        if (solucionesVisitadas.size() > MAX_SOLUCIONES_MEMORIA) {
+            // Mantener solo las mejores soluciones (50% de la memoria)
+            List<Map.Entry<String, Solucion>> solucionesOrdenadas = 
+                solucionesVisitadas.entrySet().stream()
+                    .sorted(Map.Entry.<String, Solucion>comparingByValue(
+                        (s1, s2) -> Double.compare(s1.getFitness(), s2.getFitness())))
+                    .limit(MAX_SOLUCIONES_MEMORIA / 2)
+                    .collect(java.util.stream.Collectors.toList());
+            
+            solucionesVisitadas.clear();
+            solucionesOrdenadas.forEach(entry -> 
+                solucionesVisitadas.put(entry.getKey(), entry.getValue()));
+        }
+    }
+    
+    private Solucion generarSolucionInicial() {
         List<String> todosPaquetes = contextoProblema.getTodosPaquetes().stream()
                                                    .map(Paquete::getId)
                                                    .toList();
         
-        return constructor.construir(new Solucion(), todosPaquetes, contextoProblema, validador);
+        // LITERATURA ALNS: Solución inicial SIMPLE, no greedy extremo
+        // Usar constructor básico que permita exploración
+        OperadorConstruccion constructor = new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ);
+        
+        Solucion solucionInicial = constructor.construir(new Solucion(), todosPaquetes, contextoProblema, validador);
+        
+        // CORRECCIÓN: Usar función única para calcular fitness
+        int N = contextoProblema.getTodosPaquetes().size();
+        solucionInicial.calcularFitness(N);
+        
+        // LITERATURA ALNS: Asegurar que la solución inicial no sea demasiado optimizada
+        // Si rutea menos del 50% de paquetes, es aceptable para ALNS
+        double porcentajeRuteado = (double) solucionInicial.getCantidadPaquetes() / todosPaquetes.size();
+        if (porcentajeRuteado < 0.3) {
+            System.out.println("Solución inicial con baja cobertura (" + String.format("%.1f", porcentajeRuteado * 100) + 
+                             "%) - ALNS puede mejorar significativamente");
+        }
+        
+        return solucionInicial;
     }
     
     private OperadorDestruccion seleccionarOperadorDestruccion() {
-        return seleccionarOperadorPorPeso(operadoresDestruccion.stream()
-                                                .map(op -> (Object) op)
-                                                .toList());
+        return seleccionarPorProbabilidad(operadoresDestruccion);
     }
     
     private OperadorConstruccion seleccionarOperadorConstruccion() {
-        return seleccionarOperadorPorPeso(operadoresConstruccion.stream()
-                                                .map(op -> (Object) op)
-                                                .toList());
+        List<OperadorConstruccion> ops = obtenerOperadoresCompatibles();
+        return seleccionarPorProbabilidad(ops);
     }
     
-    @SuppressWarnings("unchecked")
-    private <T> T seleccionarOperadorPorPeso(List<Object> operadores) {
-        double pesoTotal = operadores.stream()
-                .mapToDouble(op -> {
-                    if (op instanceof OperadorDestruccion) {
-                        return pesosOperadores.get(((OperadorDestruccion) op).getNombre());
-                    } else if (op instanceof OperadorConstruccion) {
-                        return pesosOperadores.get(((OperadorConstruccion) op).getNombre());
-                    }
-                    return 0.0;
-                }).sum();
-        
-        double valorAleatorio = random.nextDouble() * pesoTotal;
-        double acumulado = 0.0;
-        
-        for (Object op : operadores) {
-            String nombre = "";
-            if (op instanceof OperadorDestruccion) {
-                nombre = ((OperadorDestruccion) op).getNombre();
-            } else if (op instanceof OperadorConstruccion) {
-                nombre = ((OperadorConstruccion) op).getNombre();
-            }
-            
-            acumulado += pesosOperadores.get(nombre);
-            if (acumulado >= valorAleatorio) {
-                return (T) op;
-            }
+    private <T> T seleccionarPorProbabilidad(List<T> ops) {
+        double sum = 0;
+        for (T op : ops) {
+            String nombre = (op instanceof OperadorDestruccion d) ? d.getNombre() : 
+                          (op instanceof OperadorConstruccion c) ? c.getNombre() : "unknown";
+            sum += pesosOperadores.getOrDefault(nombre, 1.0);
         }
         
-        // Fallback: retornar último operador
-        return (T) operadores.get(operadores.size() - 1);
+        double r = random.nextDouble() * sum;
+        double acc = 0;
+        
+        for (T op : ops) {
+            String nombre = (op instanceof OperadorDestruccion d) ? d.getNombre() : 
+                          (op instanceof OperadorConstruccion c) ? c.getNombre() : "unknown";
+            double p = pesosOperadores.getOrDefault(nombre, 1.0);
+            acc += p;
+            if (acc >= r) return op;
+        }
+        
+        return ops.get(ops.size() - 1);
+    }
+    
+    private String firma(Solucion s) {
+        StringBuilder sb = new StringBuilder(4096);
+        s.getRutasPaquetes().entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> {
+            sb.append(e.getKey()).append(':');
+            for (SegmentoRuta seg : e.getValue().getSegmentos()) {
+                sb.append(seg.getNumeroVuelo()).append('>').append(seg.getAeropuertoDestino()).append('|');
+            }
+            sb.append('#');
+        });
+        return sb.toString();
     }
     
     private boolean aceptarSolucion(Solucion nuevaSolucion) {
         ALNSConfig config = ALNSConfig.getInstance();
         
-        // Verificar si la solución ya fue visitada (solo para soluciones peores)
-        int hashSolucion = nuevaSolucion.hashCode();
+        // CORRECCIÓN: Usar firma determinista en lugar de hashCode
+        String key = firma(nuevaSolucion);
         
         if (nuevaSolucion.esMejorQue(solucionActual)) {
-            // Siempre aceptar mejores soluciones, incluso si ya fueron visitadas
-            solucionesVisitadas.put(hashSolucion, nuevaSolucion.copiar());
+            solucionesVisitadas.put(key, nuevaSolucion.copiar());
             return true;
         }
         
-        // Para soluciones peores, verificar si ya fueron visitadas
-        if (solucionesVisitadas.containsKey(hashSolucion)) {
-            return false; // No aceptar soluciones peores ya visitadas
+        if (solucionesVisitadas.containsKey(key)) {
+            return false;
         }
         
         if (temperaturaActual <= config.getEpsilon()) {
@@ -289,11 +482,12 @@ public class ALNSSolver {
         
         // Simulated Annealing: aceptar peores soluciones con probabilidad
         double delta = nuevaSolucion.getFitness() - solucionActual.getFitness();
-        double probabilidad = Math.exp(-delta / temperaturaActual);
+        // Normalizar delta para evitar valores extremos
+        double deltaNormalizado = Math.min(delta, temperaturaActual * 10);
+        double probabilidad = Math.exp(-deltaNormalizado / temperaturaActual);
         
         if (random.nextDouble() < probabilidad) {
-            // Agregar a soluciones visitadas
-            solucionesVisitadas.put(hashSolucion, nuevaSolucion.copiar());
+            solucionesVisitadas.put(key, nuevaSolucion.copiar());
             return true;
         }
         
@@ -301,8 +495,8 @@ public class ALNSSolver {
     }
     
     private void enfriarTemperatura() {
-        ALNSConfig config = ALNSConfig.getInstance();
-        temperaturaActual *= config.getCoolingRate();
+        // CORRECCIÓN: Usar el parámetro del constructor, no el hardcoded
+        temperaturaActual *= factorEnfriamiento;
     }
     
     private void actualizarPesosOperadores() {
@@ -315,6 +509,9 @@ public class ALNSSolver {
                     com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator abstractOp = 
                         (com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator) op;
                     abstractOp.updateWeight(config.getReactionFactor());
+                    
+                    // CORRECCIÓN: Sincronizar mapa con pesos internos
+                    pesosOperadores.put(op.getNombre(), abstractOp.getWeight());
                 }
             }
             
@@ -324,11 +521,26 @@ public class ALNSSolver {
                     com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator abstractOp = 
                         (com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator) op;
                     abstractOp.updateWeight(config.getReactionFactor());
+                    
+                    // CORRECCIÓN: Sincronizar mapa con pesos internos
+                    pesosOperadores.put(op.getNombre(), abstractOp.getWeight());
                 }
             }
             
             // Normalizar probabilidades
             normalizarProbabilidades();
+            
+            // CORRECCIÓN: Resetear stats tras cada actualización de pesos por segmento
+            for (OperadorDestruccion op : operadoresDestruccion) {
+                if (op instanceof com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator a) {
+                    a.resetStats();
+                }
+            }
+            for (OperadorConstruccion op : operadoresConstruccion) {
+                if (op instanceof com.grupo5e.morapack.algorithm.alns.operators.AbstractOperator a) {
+                    a.resetStats();
+                }
+            }
             
             if (config.isEnableVerboseLogging()) {
                 System.out.println("Pesos actualizados en iteración " + iteracionActual);
@@ -414,6 +626,13 @@ public class ALNSSolver {
         return new ArrayList<>(historialFitness);
     }
     
+    /**
+     * Obtiene el historial del mejor fitness para análisis de convergencia
+     */
+    public List<Double> getHistorialMejorFitness() {
+        return new ArrayList<>(historialMejorFitness);
+    }
+    
     public void imprimirEstadisticas() {
         ALNSConfig config = ALNSConfig.getInstance();
         if (!config.isEnableVerboseLogging()) {
@@ -450,19 +669,6 @@ public class ALNSSolver {
         return config.getSigma3();
     }
     
-    /**
-     * Recalcula el fitness de una solución considerando el contexto del problema
-     */
-    private void recalcularFitnessConContexto(Solucion solucion) {
-        int totalPaquetes = contextoProblema.getTodosPaquetes().size();
-        double penalizacionPaquetesNoRuteados = solucion.calcularPenalizacionPaquetesNoRuteados(totalPaquetes);
-        
-        // Recalcular fitness con la penalización correcta
-        double fitnessBase = solucion.getCostoTotal() + solucion.getTiempoTotalHoras();
-        double penalizacionViolaciones = solucion.getViolacionesRestricciones() * 50.0 + 100.0;
-        
-        solucion.setFitness(fitnessBase + penalizacionViolaciones + penalizacionPaquetesNoRuteados);
-    }
     
     /**
      * Registra fallos para paquetes no ruteados

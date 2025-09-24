@@ -5,10 +5,10 @@ package com.grupo5e.morapack.core.constants;
  */
 public final class ConstantesMoraPack {
     
-    // Sedes de MoraPack
-    public static final String SEDE_LIMA = "LIM";
-    public static final String SEDE_BRUSELAS = "BRU"; 
-    public static final String SEDE_BAKU = "BAK";
+    // Sedes de MoraPack (códigos ICAO reales)
+    public static final String SEDE_LIMA = "SPIM";        // Lima, Perú
+    public static final String SEDE_BRUSELAS = "EBCI";    // Bruselas, Bélgica  
+    public static final String SEDE_BAKU = "UBBB";        // Baku, Azerbaiyán
     public static final String[] SEDES_MORAPACK = {SEDE_LIMA, SEDE_BRUSELAS, SEDE_BAKU};
     
     // Plazos de entrega (en días)
@@ -31,6 +31,9 @@ public final class ConstantesMoraPack {
     
     // Tiempo máximo de recojo por parte del cliente
     public static final double TIEMPO_MAX_RECOJO_HORAS = 2.0;
+    
+    // Tiempo de procesamiento administrativo final (limpieza, envasado, trámites aduaneros)
+    public static final double TIEMPO_PROCESAMIENTO_ADMINISTRATIVO_HORAS = 2.0;
     
     // Frecuencias de vuelos
     public static final int FRECUENCIA_MIN_VUELOS_MISMO_CONTINENTE = 1; // mínimo 1 vez al día

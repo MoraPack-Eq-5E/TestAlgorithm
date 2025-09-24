@@ -3,6 +3,7 @@ package com.grupo5e.morapack.algorithm.alns.operators.construction;
 import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.algorithm.alns.operators.OperadorConstruccion;
 import com.grupo5e.morapack.algorithm.alns.ContextoProblema;
+import com.grupo5e.morapack.algorithm.alns.SedeSelector;
 import com.grupo5e.morapack.algorithm.validation.ValidadorRestricciones;
 import java.util.*;
 
@@ -59,8 +60,26 @@ public class ConstruccionInteligente implements OperadorConstruccion {
                                                    ContextoProblema contexto, ValidadorRestricciones validador,
                                                    Solucion solucionActual) {
         
-        String origen = paquete.getAeropuertoOrigen();
+        // CORRECCIÓN: En MoraPack, los paquetes no tienen origen predefinido
+        // El origen se determina dinámicamente desde las sedes
         String destino = paquete.getAeropuertoDestino();
+        
+        if (destino == null) {
+            if (com.grupo5e.morapack.algorithm.alns.ALNSConfig.getInstance().isEnableVerboseLogging()) {
+                System.out.println("⚠️ Paquete " + paqueteId + " sin destino definido");
+            }
+            return null;
+        }
+        
+        // CORRECCIÓN: Asignar origen dinámicamente desde las sedes si es null
+        String origen = paquete.getAeropuertoOrigen();
+        if (origen == null) {
+            SedeSelector sedeSelector = new SedeSelector(contexto);
+            origen = sedeSelector.seleccionarMejorSede(destino, java.time.LocalDateTime.now(), 1);
+            if (origen == null) {
+                return null; // No se encontró sede válida
+            }
+        }
         
         // 1. Intentar ruta directa
         List<Vuelo> vuelosDirectos = contexto.getVuelosDirectos(origen, destino);

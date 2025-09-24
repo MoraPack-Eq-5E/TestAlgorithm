@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.*;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -71,25 +72,45 @@ public class Solucion {
         }
     }
     
+    private void recomputarOcupacionesDesdeRutas() {
+        ocupacionVuelos.clear();
+        ocupacionAlmacenes.clear();
+        for (Ruta r : rutasPaquetes.values()) {
+            for (SegmentoRuta s : r.getSegmentos()) {
+                ocupacionVuelos.merge(s.getNumeroVuelo(), 1, Integer::sum);
+                ocupacionAlmacenes.merge(s.getAeropuertoDestino(), 1, Integer::sum);
+            }
+        }
+    }
+    
     public void recalcularMetricas() {
+        // Recalcular ocupaciones primero para no arrastrar drift
+        recomputarOcupacionesDesdeRutas();
+
         costoTotal = rutasPaquetes.values().stream()
                 .mapToDouble(Ruta::getCostoTotal)
                 .sum();
-        
+
+        // makespan (tiempo máximo de ruta); si prefieres suma, cambia aquí
         tiempoTotalHoras = rutasPaquetes.values().stream()
                 .mapToDouble(Ruta::getTiempoTotalHoras)
                 .max()
-                .orElse(0.0); // Tiempo máximo (makespan)
-        
-        calcularFuncionObjetivo();
+                .orElse(0.0);
+
+        calcularFuncionObjetivo(); // ver siguiente punto
     }
     
-    private void calcularFuncionObjetivo() {
-        // Función objetivo del negocio: minimizar tiempo total + costos + penalizaciones
-        double penalizacionViolaciones = calcularPenalizacionGradual();
-        double penalizacionPaquetesNoRuteados = calcularPenalizacionPaquetesNoRuteados();
-        
-        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penalizacionViolaciones + penalizacionPaquetesNoRuteados;
+    public void calcularFuncionObjetivo() {
+        // si no tienes totalPaquetes, no penalices no ruteados aquí:
+        double penalViol = calcularPenalizacionGradual();
+        double penalNoRuteados = 0.0; // dejas para la variante con contexto
+        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penalViol + penalNoRuteados;
+    }
+    
+    public void calcularFuncionObjetivo(int totalPaquetes) {
+        double penalViol = calcularPenalizacionGradual();
+        double penalNoRuteados = calcularPenalizacionPaquetesNoRuteados(totalPaquetes);
+        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penalViol + penalNoRuteados;
     }
     
     /**
@@ -109,14 +130,6 @@ public class Solucion {
         return penalizacionBase + penalizacionIncremental;
     }
     
-    /**
-     * Calcula penalización por paquetes no ruteados de manera gradual
-     */
-    private double calcularPenalizacionPaquetesNoRuteados() {
-        // Este método será llamado desde el contexto del problema
-        // para obtener el número total de paquetes
-        return 0.0; // Se calculará en el contexto
-    }
     
     /**
      * Calcula penalización por paquetes no ruteados con información del contexto
@@ -151,20 +164,44 @@ public class Solucion {
     }
     
     public List<String> getPaquetesAleatorios(int cantidad) {
-        List<String> paquetes = new ArrayList<>(rutasPaquetes.keySet());
-        Collections.shuffle(paquetes);
-        return paquetes.subList(0, Math.min(cantidad, paquetes.size()));
+        if (cantidad <= 0 || rutasPaquetes.isEmpty()) return Collections.emptyList();
+        List<String> pkgs = new ArrayList<>(rutasPaquetes.keySet());
+        Collections.shuffle(pkgs);
+        return pkgs.subList(0, Math.min(cantidad, pkgs.size()));
     }
     
     public Solucion copiar() {
-        Solucion copia = new Solucion();
-        for (Map.Entry<String, Ruta> entry : this.rutasPaquetes.entrySet()) {
-            copia.rutasPaquetes.put(entry.getKey(), entry.getValue().copiar());
+        Solucion c = new Solucion();
+        for (Map.Entry<String, Ruta> e : this.rutasPaquetes.entrySet()) {
+            c.rutasPaquetes.put(e.getKey(), e.getValue().copiar());
         }
-        copia.ocupacionVuelos = new HashMap<>(this.ocupacionVuelos);
-        copia.ocupacionAlmacenes = new HashMap<>(this.ocupacionAlmacenes);
-        copia.recalcularMetricas();
-        return copia;
+        // Recalcula todo desde rutas (evita copiar mapas desfasados)
+        c.recalcularMetricas();
+        // estados que vienen del validador se setearán luego fuera
+        return c;
+    }
+    
+    /**
+     * API para recibir resultado de validación
+     * Para alinear esFactible y violacionesRestricciones con FO
+     */
+    public void aplicarResultadoValidacion(boolean esFactible, int violaciones, int totalPaquetes) {
+        this.esFactible = esFactible;
+        this.violacionesRestricciones = violaciones;
+        double penNR = calcularPenalizacionPaquetesNoRuteados(totalPaquetes);
+        double penViol = calcularPenalizacionGradual();
+        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penNR + penViol;
+    }
+    
+    /**
+     * Actualiza el fitness con contexto completo (costo + makespan + penalizaciones)
+     */
+    public void actualizarFitnessConContexto(int totalPaquetes) {
+        recalcularMetricas(); // ya suma costoTotal y tiempoTotalHoras (makespan)
+        double penViol = calcularPenalizacionGradual();        // ya lo tienes
+        int noRuteados = Math.max(0, totalPaquetes - getCantidadPaquetes());
+        double penNoR = 10.0 * noRuteados; // Penalización lineal más suave
+        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penViol + penNoR;
     }
     
     public boolean esMejorQue(Solucion otra) {
@@ -173,7 +210,7 @@ public class Solucion {
         return this.funcionObjetivo < otra.funcionObjetivo;
     }
     
-    public double calcularPorcentajeUtilizacionVuelos() {
+    public double calcularPromedioPaquetesPorVuelo() {
         if (ocupacionVuelos.isEmpty()) return 0.0;
         return ocupacionVuelos.values().stream()
                 .mapToDouble(Integer::doubleValue)
@@ -189,6 +226,69 @@ public class Solucion {
     // Método legacy para compatibilidad
     public double getFitness() {
         return funcionObjetivo;
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Solucion solucion = (Solucion) o;
+        
+        // Comparar por contenido de rutas (no por identidad de objeto)
+        if (rutasPaquetes.size() != solucion.rutasPaquetes.size()) return false;
+        
+        // Verificar que todas las rutas sean iguales
+        for (Map.Entry<String, Ruta> entry : rutasPaquetes.entrySet()) {
+            String paqueteId = entry.getKey();
+            Ruta ruta = entry.getValue();
+            Ruta otraRuta = solucion.rutasPaquetes.get(paqueteId);
+            
+            if (otraRuta == null || !rutasEquivalentes(ruta, otraRuta)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    @Override
+    public int hashCode() {
+        // Hash basado en contenido de rutas, no en identidad de objeto
+        int hash = 0;
+        for (Map.Entry<String, Ruta> entry : rutasPaquetes.entrySet()) {
+            hash += entry.getKey().hashCode();
+            hash += entry.getValue().getSegmentos().hashCode();
+        }
+        return hash;
+    }
+    
+    /**
+     * Compara si dos rutas son equivalentes (mismo contenido)
+     */
+    private boolean rutasEquivalentes(Ruta ruta1, Ruta ruta2) {
+        if (ruta1.getSegmentos().size() != ruta2.getSegmentos().size()) {
+            return false;
+        }
+        
+        for (int i = 0; i < ruta1.getSegmentos().size(); i++) {
+            SegmentoRuta seg1 = ruta1.getSegmentos().get(i);
+            SegmentoRuta seg2 = ruta2.getSegmentos().get(i);
+            
+            if (!segmentosEquivalentes(seg1, seg2)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Compara si dos segmentos son equivalentes
+     */
+    private boolean segmentosEquivalentes(SegmentoRuta seg1, SegmentoRuta seg2) {
+        return Objects.equals(seg1.getAeropuertoOrigen(), seg2.getAeropuertoOrigen()) &&
+               Objects.equals(seg1.getAeropuertoDestino(), seg2.getAeropuertoDestino()) &&
+               Objects.equals(seg1.getNumeroVuelo(), seg2.getNumeroVuelo());
     }
     
     @Override

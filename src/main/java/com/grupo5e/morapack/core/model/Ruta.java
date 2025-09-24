@@ -59,14 +59,17 @@ public class Ruta {
         costoTotal = segmentos.stream()
                 .mapToDouble(SegmentoRuta::getCosto)
                 .sum();
-        
+
         tiempoTotalHoras = segmentos.stream()
                 .mapToDouble(SegmentoRuta::getDuracionHoras)
                 .sum();
-        
-        // Actualizar fecha fin estimada
+
+        // Actualizar fecha fin estimada con minutos (no truncar decimales)
         if (fechaInicio != null) {
-            fechaFinEstimada = fechaInicio.plusHours((long)tiempoTotalHoras);
+            long minutos = Math.round(tiempoTotalHoras * 60.0);
+            fechaFinEstimada = fechaInicio.plusMinutes(minutos);
+        } else {
+            fechaFinEstimada = null;
         }
     }
     
@@ -102,12 +105,32 @@ public class Ruta {
             throw new IllegalStateException("La ruta no puede estar vacía");
         }
         
-        // Validar que los segmentos estén conectados
+        // Aeropuertos no nulos y duraciones positivas
+        for (SegmentoRuta s : segmentos) {
+            if (s.getAeropuertoOrigen() == null || s.getAeropuertoDestino() == null) {
+                throw new IllegalStateException("Segmento con aeropuerto nulo");
+            }
+            if (s.getDuracionHoras() <= 0.0) {
+                throw new IllegalStateException("Segmento con duración no positiva");
+            }
+        }
+        
+        // Conectividad estricta
         for (int i = 1; i < segmentos.size(); i++) {
-            if (!segmentos.get(i-1).getAeropuertoDestino().equals(segmentos.get(i).getAeropuertoOrigen())) {
+            if (!segmentos.get(i - 1).getAeropuertoDestino()
+                    .equals(segmentos.get(i).getAeropuertoOrigen())) {
                 throw new IllegalStateException("Los segmentos de la ruta no están conectados correctamente");
             }
         }
+    }
+    
+    /**
+     * Tiempo total incluyendo conexiones fijas entre segmentos (no al final).
+     * Útil para validaciones de deadline que consideren tiempos de conexión.
+     */
+    public double getTiempoTotalHorasConConexiones(double horasConexion) {
+        int conexiones = Math.max(0, segmentos.size() - 1);
+        return tiempoTotalHoras + horasConexion * conexiones;
     }
     
     public Ruta copiar() {

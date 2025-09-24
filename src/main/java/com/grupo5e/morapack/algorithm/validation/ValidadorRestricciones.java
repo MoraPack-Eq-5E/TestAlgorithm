@@ -2,6 +2,7 @@ package com.grupo5e.morapack.algorithm.validation;
 
 import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.core.enums.TipoViolacion;
+import com.grupo5e.morapack.core.constants.ConstantesMoraPack;
 import java.util.*;
 
 /**
@@ -176,12 +177,22 @@ public class ValidadorRestricciones {
         boolean mismoContinente = continenteOrigen.equals(continenteDestino);
         int diasPlazoMaximo = mismoContinente ? 2 : 3;
         
+        // Calcular tiempo total incluyendo procesamiento administrativo
+        double tiempoTotal = ruta.getTiempoTotalHoras();
+        
+        // Agregar tiempo de conexiones entre vuelos
+        int conexiones = Math.max(0, ruta.getSegmentos().size() - 1);
+        tiempoTotal += conexiones * 2.0; // 2 horas por conexión
+        
+        // Agregar tiempo de procesamiento administrativo final
+        tiempoTotal += ConstantesMoraPack.TIEMPO_PROCESAMIENTO_ADMINISTRATIVO_HORAS;
+        
         // Verificar si el tiempo total de la ruta excede el plazo
         double horasMaximas = diasPlazoMaximo * 24.0;
-        if (ruta.getTiempoTotalHoras() > horasMaximas) {
+        if (tiempoTotal > horasMaximas) {
             resultado.agregarViolacion(
-                String.format("Ruta de paquete %s excede plazo de entrega (%.1f > %.1f horas)", 
-                            paqueteId, ruta.getTiempoTotalHoras(), horasMaximas),
+                String.format("Ruta de paquete %s excede plazo de entrega (%.1f > %.1f horas) - incluye procesamiento administrativo", 
+                            paqueteId, tiempoTotal, horasMaximas),
                 TipoViolacion.PLAZO_EXCEDIDO
             );
         }
@@ -245,23 +256,47 @@ public class ValidadorRestricciones {
     
     /**
      * Verifica si una ruta es factible sin agregarla a la solución.
+     * Incluye validación estática y temporal para asegurar que la ruta
+     * no solo sea válida "en papel" sino también en la simulación temporal.
      */
     public boolean esRutaFactible(String paqueteId, Ruta ruta, Solucion solucionActual) {
+        // 1. Validaciones básicas (tiempos, vuelos, conectividad, etc.)
         ResultadoValidacion resultado = validarRuta(paqueteId, ruta);
-        
-        // Verificar impacto en capacidades globales
-        if (resultado.esFactible()) {
-            // Simular adición temporal de la ruta
-            Solucion solucionTemporal = solucionActual.copiar();
-            solucionTemporal.agregarRuta(paqueteId, ruta);
-            
-            ResultadoValidacion validacionGlobal = new ResultadoValidacion();
-            validarCapacidadesGlobales(solucionTemporal, validacionGlobal);
-            
-            return validacionGlobal.esFactible();
+        if (!resultado.esFactible()) {
+            return false;
         }
         
-        return false;
+        // 2. Simulación temporal: probar ruta dentro de la solución actual
+        Solucion copia = solucionActual.copiar();
+        copia.agregarRuta(paqueteId, ruta);
+        
+        // 3. Validar capacidades globales estáticas
+        ResultadoValidacion validacionGlobal = new ResultadoValidacion();
+        validarCapacidadesGlobales(copia, validacionGlobal);
+        if (!validacionGlobal.esFactible()) {
+            return false;
+        }
+        
+        // 4. Validar capacidades temporales (simulación minuto a minuto)
+        return validarCapacidadesTemporales(copia);
+    }
+    
+    /**
+     * Valida solo las capacidades temporales de una ruta específica.
+     * Útil para optimizaciones donde ya se sabe que la ruta es válida estáticamente.
+     * 
+     * @param paqueteId ID del paquete
+     * @param ruta ruta a validar
+     * @param solucionActual solución actual
+     * @return true si la ruta no viola capacidades temporales
+     */
+    public boolean validarCapacidadesTemporalesRuta(String paqueteId, Ruta ruta, Solucion solucionActual) {
+        // Crear copia temporal con la nueva ruta
+        Solucion copia = solucionActual.copiar();
+        copia.agregarRuta(paqueteId, ruta);
+        
+        // Validar solo capacidades temporales
+        return validarCapacidadesTemporales(copia);
     }
     
     /**
@@ -272,9 +307,6 @@ public class ValidadorRestricciones {
      * @return true si no hay violaciones temporales, false si las hay
      */
     public boolean validarCapacidadesTemporales(Solucion solucion) {
-        // DEBUG: Verificar que se está ejecutando
-        System.out.println("   [VALIDACIÓN TEMPORAL] Iniciando validación temporal para " + solucion.getRutasPaquetes().size() + " paquetes");
-        
         // Matriz temporal: [aeropuerto][minuto_del_dia] = ocupación_actual
         Map<String, int[]> ocupacionTemporal = new HashMap<>();
         final int MINUTES_PER_DAY = 24 * 60; // 1440 minutos
@@ -292,18 +324,13 @@ public class ValidadorRestricciones {
             
             if (!simularFlujoTemporalPaquete(paqueteId, ruta, ocupacionTemporal)) {
                 violacionesTemporales++;
-                System.out.println("   [VIOLACIÓN TEMPORAL] Paquete " + paqueteId + " viola capacidad temporal");
             }
         }
         
         if (violacionesTemporales > 0) {
-            System.out.println("   [VALIDACIÓN TEMPORAL] " + violacionesTemporales + " violaciones temporales detectadas");
             return false; // Se encontró una violación de capacidad temporal
         }
         
-        // DEBUG: Mostrar picos de ocupación
-        System.out.println("   [VALIDACIÓN TEMPORAL] ✅ Sin violaciones temporales");
-        mostrarPicosOcupacion(ocupacionTemporal);
         return true; // No hay violaciones de capacidad temporal
     }
     
@@ -355,11 +382,20 @@ public class ValidadorRestricciones {
             minutoActual += tiempoVuelo;
             
             // 4. Paquete llega al aeropuerto destino
-            int tiempoEnDestino = 60; // 1 hora en almacén de destino
+            int tiempoEnDestino = 60; // 1 hora mínimo en almacén de destino
             if (!agregarOcupacionTemporal(aeropuertoDestino, minutoActual, tiempoEnDestino, ocupacionTemporal)) {
                 return false; // Violación de capacidad en aeropuerto destino
             }
             minutoActual += tiempoEnDestino;
+            
+            // 4.5. Si es el último segmento, agregar tiempo de procesamiento administrativo
+            if (i == ruta.getSegmentos().size() - 1) {
+                int tiempoProcesamientoAdmin = (int)(ConstantesMoraPack.TIEMPO_PROCESAMIENTO_ADMINISTRATIVO_HORAS * 60);
+                if (!agregarOcupacionTemporal(aeropuertoDestino, minutoActual, tiempoProcesamientoAdmin, ocupacionTemporal)) {
+                    return false; // Violación de capacidad durante procesamiento administrativo
+                }
+                minutoActual += tiempoProcesamientoAdmin;
+            }
             
             // 5. Tiempo de conexión (si no es el último segmento)
             if (i < ruta.getSegmentos().size() - 1) {
@@ -391,8 +427,7 @@ public class ValidadorRestricciones {
         }
         
         int[] ocupacionArray = ocupacionTemporal.get(codigoIATA);
-        // DEBUG: Reducir capacidad temporalmente para forzar validación
-        int capacidadMaxima = Math.min(aeropuerto.getCapacidadAlmacen(), 50); // Máximo 50 paquetes por almacén
+        int capacidadMaxima = aeropuertos.get(codigoIATA).getCapacidadAlmacen(); 
         
         // Verificar y agregar ocupación para cada minuto del período
         for (int minuto = minutoInicio; minuto < Math.min(minutoInicio + duracionMinutos, 1440); minuto++) {
@@ -454,38 +489,4 @@ public class ValidadorRestricciones {
         return resultado;
     }
     
-    /**
-     * Muestra los picos de ocupación temporal para debugging.
-     */
-    private void mostrarPicosOcupacion(Map<String, int[]> ocupacionTemporal) {
-        System.out.println("   [PICOS OCUPACIÓN] Analizando picos de ocupación...");
-        
-        for (Map.Entry<String, int[]> entry : ocupacionTemporal.entrySet()) {
-            String codigoIATA = entry.getKey();
-            int[] ocupacionArray = entry.getValue();
-            Aeropuerto aeropuerto = aeropuertos.get(codigoIATA);
-            
-            if (aeropuerto == null) continue;
-            
-            int maxOcupacion = 0;
-            int minutoPico = 0;
-            
-            for (int minuto = 0; minuto < 1440; minuto++) {
-                if (ocupacionArray[minuto] > maxOcupacion) {
-                    maxOcupacion = ocupacionArray[minuto];
-                    minutoPico = minuto;
-                }
-            }
-            
-            if (maxOcupacion > 0) {
-                int horaPico = minutoPico / 60;
-                int minutoPicoHora = minutoPico % 60;
-                double porcentajeOcupacion = (maxOcupacion * 100.0) / aeropuerto.getCapacidadAlmacen();
-                
-                System.out.println("     " + codigoIATA + ": " + maxOcupacion + "/" + aeropuerto.getCapacidadAlmacen() + 
-                                 " (" + String.format("%.1f", porcentajeOcupacion) + "%) a las " + 
-                                 String.format("%02d:%02d", horaPico, minutoPicoHora));
-            }
-        }
-    }
 }

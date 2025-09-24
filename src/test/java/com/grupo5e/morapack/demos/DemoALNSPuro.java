@@ -145,7 +145,7 @@ public class DemoALNSPuro {
     
     private static void ejecutarALNSConProgreso(ContextoProblema contexto) {
         // Configurar ALNS para DEBUG - parámetros mínimos
-        ALNSSolver solver = new ALNSSolver(3, 1000.0, 0.95); // 3 iteraciones para debug
+        ALNSSolver solver = new ALNSSolver(10, 1000.0, 0.95); // 3 iteraciones para debug
         
         solver.configurarProblema(
             new ArrayList<>(contexto.getTodosPaquetes()),

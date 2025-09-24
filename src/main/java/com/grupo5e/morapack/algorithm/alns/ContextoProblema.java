@@ -134,6 +134,11 @@ public class ContextoProblema {
      * Encuentra la ruta más corta entre dos aeropuertos usando BFS
      */
     public List<String> encontrarRutaMasCorta(String origen, String destino) {
+        // CORRECCIÓN: Verificar que origen y destino no sean null
+        if (origen == null || destino == null) {
+            return Collections.emptyList();
+        }
+        
         if (origen.equals(destino)) {
             return Collections.singletonList(origen);
         }

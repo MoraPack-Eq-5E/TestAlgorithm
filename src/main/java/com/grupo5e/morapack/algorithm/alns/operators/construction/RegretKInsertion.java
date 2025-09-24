@@ -7,6 +7,7 @@ import com.grupo5e.morapack.algorithm.validation.ValidadorRestricciones;
 import com.grupo5e.morapack.core.model.*;
 
 import java.util.*;
+import java.util.Arrays;
 
 /**
  * Clase auxiliar para representar una inserción posible
@@ -127,7 +128,18 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
         if (producto == null) return inserciones;
 
         // Buscar vuelos disponibles desde el origen del producto
-        List<Vuelo> vuelosDisponibles = contexto.getVuelosDesde(producto.getAeropuertoOrigen());
+        // CORRECCIÓN: Probar las 3 sedes si origen es null
+        List<String> orígenes = new ArrayList<>();
+        if (producto.getAeropuertoOrigen() != null) {
+            orígenes.add(producto.getAeropuertoOrigen());
+        } else {
+            orígenes.addAll(Arrays.asList("EBCI", "UBBB", "SPIM"));  // ← tus sedes
+        }
+        
+        List<Vuelo> vuelosDisponibles = new ArrayList<>();
+        for (String origenCandidato : orígenes) {
+            vuelosDisponibles.addAll(contexto.getVuelosDesde(origenCandidato));
+        }
         
         for (Vuelo vuelo : vuelosDisponibles) {
             // Verificar capacidad del vuelo
@@ -216,6 +228,8 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
             // Insertar el producto en el vuelo
             insertarProductoEnVuelo(vuelo, producto, contexto);
             
+            // CORRECCIÓN: Fijar origen elegido
+            producto.setAeropuertoOrigen(vuelo.getAeropuertoOrigen());
             // Actualizar la solución
             actualizarSolucionConProducto(solucion, producto, vuelo);
         } else {
@@ -302,21 +316,96 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
     
     /**
      * Actualiza la solución con el producto insertado en el vuelo
+     * CORRECCIÓN: Crear ruta completa con segmentos hasta el destino
      */
     private void actualizarSolucionConProducto(Solucion solucion, Paquete producto, Vuelo vuelo) {
-        // Crear una ruta simple para el producto
-        Ruta ruta = new Ruta("RUTA_" + producto.getId(), producto.getId());
-        
-        // Calcular costo basado en distancia y tiempo del vuelo
-        double costo = vuelo.getDuracionHoras() * 10.0; // Costo simplificado
-        ruta.setCostoTotal(costo);
-        ruta.setTiempoTotalHoras(vuelo.getDuracionHoras());
+        // Crear ruta completa hasta el destino
+        Ruta ruta = crearRutaCompleta(producto, vuelo);
+        if (ruta == null) {
+            return; // No se pudo crear ruta válida
+        }
         
         // Agregar la ruta a la solución
         solucion.agregarRuta(producto.getId(), ruta);
         
-        // Actualizar ocupación del vuelo en la solución
-        solucion.getOcupacionVuelos().put(vuelo.getNumeroVuelo(), vuelo.getPaquetesReservados());
+        // Actualizar ocupaciones
+        for (SegmentoRuta segmento : ruta.getSegmentos()) {
+            solucion.getOcupacionVuelos().merge(segmento.getNumeroVuelo(), 1, Integer::sum);
+            solucion.getOcupacionAlmacenes().merge(segmento.getAeropuertoDestino(), 1, Integer::sum);
+        }
+    }
+    
+    /**
+     * Crea una ruta completa desde origen hasta destino
+     */
+    private Ruta crearRutaCompleta(Paquete producto, Vuelo vueloInicial) {
+        String destino = producto.getAeropuertoDestino();
+        
+        // Si es vuelo directo, crear segmento único
+        if (vueloInicial.getAeropuertoDestino().equals(destino)) {
+            return crearRutaDirecta(producto, vueloInicial);
+        }
+        
+        // Si no es directo, buscar conexión
+        return crearRutaConConexion(producto, vueloInicial, destino);
+    }
+    
+    /**
+     * Crea ruta directa (1 segmento)
+     */
+    private Ruta crearRutaDirecta(Paquete producto, Vuelo vuelo) {
+        Ruta ruta = new Ruta("RUTA_" + producto.getId(), producto.getId());
+        
+        // Crear segmento de vuelo
+        SegmentoRuta segmento = new SegmentoRuta(
+            "SEG_" + producto.getId() + "_1",
+            vuelo.getAeropuertoOrigen(),
+            vuelo.getAeropuertoDestino(),
+            vuelo.getNumeroVuelo(),
+            vuelo.isMismoContinente()
+        );
+        // Configurar duración y costo específicos
+        segmento.setDuracionHoras(vuelo.getDuracionHoras());
+        segmento.setCosto(calcularCostoVuelo(vuelo));
+        
+        ruta.agregarSegmento(segmento);
+        
+        return ruta;
+    }
+    
+    /**
+     * Crea ruta con conexión (2+ segmentos)
+     */
+    private Ruta crearRutaConConexion(Paquete producto, Vuelo vueloInicial, String destinoFinal) {
+        Ruta ruta = new Ruta("RUTA_" + producto.getId(), producto.getId());
+        
+        // Primer segmento
+        SegmentoRuta segmento1 = new SegmentoRuta(
+            "SEG_" + producto.getId() + "_1",
+            vueloInicial.getAeropuertoOrigen(),
+            vueloInicial.getAeropuertoDestino(),
+            vueloInicial.getNumeroVuelo(),
+            vueloInicial.isMismoContinente()
+        );
+        segmento1.setDuracionHoras(vueloInicial.getDuracionHoras());
+        segmento1.setCosto(calcularCostoVuelo(vueloInicial));
+        ruta.agregarSegmento(segmento1);
+        
+        // Buscar vuelo de conexión
+        String conexion = vueloInicial.getAeropuertoDestino();
+        // TODO: Implementar búsqueda de vuelo de conexión
+        // Por ahora, crear segmento ficticio
+        SegmentoRuta segmento2 = new SegmentoRuta(
+            "SEG_" + producto.getId() + "_2",
+            conexion,
+            destinoFinal,
+            "CONEXION_" + producto.getId(),
+            false // No es mismo continente
+        );
+        segmento2.setDuracionHoras(2.0); // 2 horas de conexión
+        segmento2.setCosto(50.0); // Costo de conexión
+        ruta.agregarSegmento(segmento2);
+        return ruta;
     }
     
     
@@ -324,6 +413,19 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
     public String getNombre() {
         return getName();
     }
+    
+    /**
+     * Calcula el costo de un vuelo
+     */
+    private double calcularCostoVuelo(Vuelo vuelo) {
+        // Costo basado en duración y tipo de vuelo
+        double costoBase = vuelo.getDuracionHoras() * 10.0; // $10 por hora
+        if (!vuelo.isMismoContinente()) {
+            costoBase *= 1.5; // 50% más caro para vuelos internacionales
+        }
+        return costoBase;
+    }
+    
     
     @Override
     public String getDescripcion() {

@@ -32,6 +32,9 @@ public final class ConstantesMoraPack {
     // Tiempo máximo de recojo por parte del cliente
     public static final double TIEMPO_MAX_RECOJO_HORAS = 2.0;
     
+    // Tiempo de procesamiento administrativo final (limpieza, envasado, trámites aduaneros)
+    public static final double TIEMPO_PROCESAMIENTO_ADMINISTRATIVO_HORAS = 2.0;
+    
     // Frecuencias de vuelos
     public static final int FRECUENCIA_MIN_VUELOS_MISMO_CONTINENTE = 1; // mínimo 1 vez al día
     public static final int FRECUENCIA_MAX_VUELOS_MISMO_CONTINENTE = 5; // máximo 5 veces al día

@@ -166,24 +166,29 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
     }
     
     /**
-     * Calcula el regret basado en el algoritmo VRPTWFL
+     * Calcula el regret basado en la literatura estándar (Potvin 1996)
+     * CORRECCIÓN: Fórmula correcta de regret-k
      */
     private double calcularRegret(List<InserciónPosible> insercionesPosibles) {
         if (insercionesPosibles.isEmpty()) {
             return 0;
         }
         
+        // LITERATURA: Regret-k = Σ(i=2 to k) (c_i - c_1)
+        // donde c_i es el costo de la i-ésima mejor inserción
         double regret = 0;
-        double bigM = 10000.0; // Valor grande para penalizar inserciones faltantes
         
-        // Calcular regret desde k hasta 2
-        for (int i = k; i >= 2; i--) {
+        // Ordenar inserciones por costo (mejor primero)
+        insercionesPosibles.sort(Comparator.comparingDouble(ins -> ins.costo));
+        
+        // Calcular regret desde 2 hasta k
+        for (int i = 2; i <= k; i++) {
             if (insercionesPosibles.size() >= i) {
-                // Si hay al menos i inserciones, calcular diferencia
+                // Diferencia entre i-ésima mejor y primera mejor
                 regret += insercionesPosibles.get(i - 1).costo - insercionesPosibles.get(0).costo;
             } else {
-                // Si hay menos de i inserciones, penalizar con bigM
-                regret += (i - insercionesPosibles.size()) * bigM - insercionesPosibles.get(0).costo;
+                // Si hay menos de i inserciones, usar penalización grande
+                regret += 10000.0; // BigM penalty
             }
         }
         
@@ -256,7 +261,6 @@ public class RegretKInsertion extends AbstractOperator implements OperadorConstr
             producto.actualizarUbicacion(vuelo.getAeropuertoDestino());
             producto.setEstado(com.grupo5e.morapack.core.enums.EstadoGeneral.EN_TRANSITO);
             
-            System.out.println("   Producto " + producto.getId() + " insertado en vuelo " + vuelo.getNumeroVuelo());
             
         } catch (Exception e) {
             System.out.println("   Error insertando producto " + producto.getId() + " en vuelo: " + e.getMessage());

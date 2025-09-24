@@ -24,9 +24,9 @@ public class ShawRemoval extends AbstractOperator implements OperadorDestruccion
     
     @Override
     public List<String> destruir(Solucion solucion, int cantidadRemover) {
-        // Limitar la cantidad de paquetes a remover para evitar ser demasiado agresivo
+        // CORRECCIÓN: Permitir más paquetes pero con límite razonable
         int paquetesDisponibles = solucion.getRutasPaquetes().size();
-        int cantidadLimitada = Math.min(cantidadRemover, Math.max(1, Math.min(3, paquetesDisponibles / 5)));
+        int cantidadLimitada = Math.min(cantidadRemover, Math.max(1, Math.min(10, paquetesDisponibles / 10)));
         
         // Usar la implementación con contexto
         return destruirConContexto(solucion, cantidadLimitada, null);
@@ -95,14 +95,28 @@ public class ShawRemoval extends AbstractOperator implements OperadorDestruccion
         // Ordenar por similitud (menor distancia = mayor similitud)
         similitudes.sort(Comparator.comparingDouble(ps -> ps.similitud));
         
-        // Seleccionar paquete basado en si es randomizado o determinístico
+        // LITERATURA SHAW (1998): Selección probabilística con sesgo hacia similitud
         if (isRandom) {
-            // Usar exponente para sesgar hacia los más similares
-            double rand = random.nextDouble();
-            int idx = (int) Math.floor(Math.pow(rand, 2.0) * similitudes.size()); // Exponente 2.0
-            return similitudes.get(idx).paqueteId;
+            // Shaw (1998): Usar ruleta sesgada hacia los más similares
+            double totalInverso = 0.0;
+            for (PaqueteSimilitud ps : similitudes) {
+                totalInverso += 1.0 / (1.0 + ps.similitud); // Inverso de distancia
+            }
+            
+            double rand = random.nextDouble() * totalInverso;
+            double acumulado = 0.0;
+            
+            for (PaqueteSimilitud ps : similitudes) {
+                acumulado += 1.0 / (1.0 + ps.similitud);
+                if (acumulado >= rand) {
+                    return ps.paqueteId;
+                }
+            }
+            
+            // Fallback: último elemento
+            return similitudes.get(similitudes.size() - 1).paqueteId;
         } else {
-            // Seleccionar el más similar (primero en la lista)
+            // Determinístico: seleccionar el más similar
             return similitudes.get(0).paqueteId;
         }
     }

@@ -97,20 +97,40 @@ public class Solucion {
                 .max()
                 .orElse(0.0);
 
-        calcularFuncionObjetivo(); // ver siguiente punto
+        // LITERATURA ALNS: NO calcular fitness aquí - solo métricas básicas
+        // El fitness se calcula UNA SOLA VEZ después de la reparación completa
     }
     
-    public void calcularFuncionObjetivo() {
-        // si no tienes totalPaquetes, no penalices no ruteados aquí:
-        double penalViol = calcularPenalizacionGradual();
-        double penalNoRuteados = 0.0; // dejas para la variante con contexto
-        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penalViol + penalNoRuteados;
-    }
-    
-    public void calcularFuncionObjetivo(int totalPaquetes) {
+    /**
+     * FUNCIÓN ÚNICA PARA CALCULAR FITNESS
+     * Esta es la única función que debe usarse para calcular el fitness
+     * Garantiza consistencia en todo el algoritmo
+     */
+    public void calcularFitness(int totalPaquetes) {
+        recalcularMetricas(); // Asegurar que las métricas estén actualizadas
         double penalViol = calcularPenalizacionGradual();
         double penalNoRuteados = calcularPenalizacionPaquetesNoRuteados(totalPaquetes);
+        
+        // FÓRMULA ÚNICA Y CONSISTENTE
         this.funcionObjetivo = costoTotal + tiempoTotalHoras + penalViol + penalNoRuteados;
+    }
+    
+    /**
+     * Versión sin contexto (para compatibilidad)
+     * @deprecated Usar calcularFitness(int totalPaquetes) en su lugar
+     */
+    @Deprecated
+    public void calcularFuncionObjetivo() {
+        calcularFitness(0); // Sin penalización por no ruteados
+    }
+    
+    /**
+     * Versión con contexto (para compatibilidad)
+     * @deprecated Usar calcularFitness(int totalPaquetes) en su lugar
+     */
+    @Deprecated
+    public void calcularFuncionObjetivo(int totalPaquetes) {
+        calcularFitness(totalPaquetes);
     }
     
     /**
@@ -177,7 +197,12 @@ public class Solucion {
         }
         // Recalcula todo desde rutas (evita copiar mapas desfasados)
         c.recalcularMetricas();
-        // estados que vienen del validador se setearán luego fuera
+        
+        // CORRECCIÓN: Copiar también el fitness y estados de validación
+        c.funcionObjetivo = this.funcionObjetivo;
+        c.esFactible = this.esFactible;
+        c.violacionesRestricciones = this.violacionesRestricciones;
+        
         return c;
     }
     
@@ -188,20 +213,18 @@ public class Solucion {
     public void aplicarResultadoValidacion(boolean esFactible, int violaciones, int totalPaquetes) {
         this.esFactible = esFactible;
         this.violacionesRestricciones = violaciones;
-        double penNR = calcularPenalizacionPaquetesNoRuteados(totalPaquetes);
-        double penViol = calcularPenalizacionGradual();
-        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penNR + penViol;
+        // CORRECCIÓN: Usar función única para calcular fitness
+        calcularFitness(totalPaquetes);
     }
     
     /**
      * Actualiza el fitness con contexto completo (costo + makespan + penalizaciones)
+     * @deprecated Usar calcularFitness(int totalPaquetes) en su lugar
      */
+    @Deprecated
     public void actualizarFitnessConContexto(int totalPaquetes) {
-        recalcularMetricas(); // ya suma costoTotal y tiempoTotalHoras (makespan)
-        double penViol = calcularPenalizacionGradual();        // ya lo tienes
-        int noRuteados = Math.max(0, totalPaquetes - getCantidadPaquetes());
-        double penNoR = 10.0 * noRuteados; // Penalización lineal más suave
-        this.funcionObjetivo = costoTotal + tiempoTotalHoras + penViol + penNoR;
+        // CORRECCIÓN: Usar función única para garantizar consistencia
+        calcularFitness(totalPaquetes);
     }
     
     public boolean esMejorQue(Solucion otra) {

@@ -228,7 +228,6 @@ public class CapacityRebalancingOperator extends AbstractOperator implements Ope
             solucion.agregarRuta(paquete.getId(), ruta);
             solucion.getOcupacionVuelos().put(vuelo.getNumeroVuelo(), vuelo.getPaquetesReservados());
             
-            System.out.println("   Producto " + paquete.getId() + " insertado en vuelo " + vuelo.getNumeroVuelo());
             return true;
             
         } catch (Exception e) {
@@ -271,7 +270,6 @@ public class CapacityRebalancingOperator extends AbstractOperator implements Ope
                 solucion.getOcupacionVuelos().put(vuelo.getNumeroVuelo(), vuelo.getPaquetesReservados());
             }
             
-            System.out.println("   Producto " + paquete.getId() + " insertado en ruta con escalas");
             return true;
             
         } catch (Exception e) {

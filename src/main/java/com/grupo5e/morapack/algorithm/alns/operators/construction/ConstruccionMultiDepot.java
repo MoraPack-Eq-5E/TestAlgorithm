@@ -228,7 +228,6 @@ public class ConstruccionMultiDepot implements OperadorConstruccion {
                         System.out.println("   [DEBUG] Reservado en " + numeroVuelo + 
                                          " (" + vuelo.getPaquetesReservados() + "/" + vuelo.getCapacidadMaxima() + ")");
                     } catch (IllegalStateException e) {
-                        System.out.println("   [ERROR] Vuelo " + numeroVuelo + " LLENO: " + e.getMessage());
                     }
                     break;
                 }
@@ -253,7 +252,6 @@ public class ConstruccionMultiDepot implements OperadorConstruccion {
                     System.out.println("   [ALMACEN] " + aeropuertoDestino + 
                                      " (" + aeropuerto.getPaquetesEnAlmacen() + "/" + aeropuerto.getCapacidadAlmacen() + ")");
                 } catch (IllegalStateException e) {
-                    System.out.println("   [ERROR] Almacén " + aeropuertoDestino + " LLENO: " + e.getMessage());
                 }
             }
         }

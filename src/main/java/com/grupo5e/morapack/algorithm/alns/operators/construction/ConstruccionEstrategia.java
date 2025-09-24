@@ -60,14 +60,14 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         for (String paqueteId : paquetesOrdenados) {
             Paquete paquete = contexto.getPaquete(paqueteId);
             if (paquete == null) {
-                System.err.println("Paquete no encontrado: " + paqueteId);
+                System.err.println("Package not found: " + paqueteId);
                 continue;
             }
             
             Ruta mejorRuta = estrategia.seleccionarMejorRuta(paqueteId, paquete, contexto, validador, nuevaSolucion);
             
             if (mejorRuta != null) {
-                // ¡BUG FIX! Reservar capacidad en los vuelos ANTES de agregar la ruta
+                // Reserve capacity in flights BEFORE adding route
                 reservarCapacidadEnVuelos(mejorRuta, contexto);
                 nuevaSolucion.agregarRuta(paqueteId, mejorRuta);
                 nuevaSolucion.recalcularMetricas();
@@ -78,7 +78,7 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         }
         
         if (paquetesNoRuteados > 0) {
-            System.out.println(nombre + " - Paquetes no ruteados: " + paquetesNoRuteados + "/" + paquetesRemovidos.size());
+            System.out.println(nombre + " - Unrouted packages: " + paquetesNoRuteados + "/" + paquetesRemovidos.size());
         }
         
         return nuevaSolucion;
@@ -94,9 +94,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         return descripcion;
     }
     
-    // ================================================================================
-    // ESTRATEGIAS ESPECÍFICAS
-    // ================================================================================
     
     private EstrategiaSeleccion crearEstrategia(TipoEstrategia tipo) {
         return switch (tipo) {
@@ -120,34 +117,40 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
     }
     
     // ================================================================================
-    // ESTRATEGIA VORAZ (Primera ruta factible)
-    // ================================================================================
     
     private static class EstrategiaVoraz implements EstrategiaSeleccion {
         
         @Override
         public List<String> ordenarPaquetes(List<String> paquetes, ContextoProblema contexto) {
-            return new ArrayList<>(paquetes); // Sin ordenamiento especial
+            return new ArrayList<>(paquetes);
         }
         
         @Override
         public Ruta seleccionarMejorRuta(String paqueteId, Paquete paquete, ContextoProblema contexto, 
                                         ValidadorRestricciones validador, Solucion solucionActual) {
             
-            List<Vuelo> vuelosDirectos = contexto.getVuelosDirectos(
-                paquete.getAeropuertoOrigen(), paquete.getAeropuertoDestino()
-            );
+            // Handle null origin using SedeSelector
+            String origen = paquete.getAeropuertoOrigen();
+            if (origen == null) {
+                com.grupo5e.morapack.algorithm.alns.SedeSelector sedeSelector = 
+                    new com.grupo5e.morapack.algorithm.alns.SedeSelector(contexto);
+                origen = sedeSelector.seleccionarMejorSede(paquete.getAeropuertoDestino(), 
+                    java.time.LocalDateTime.now(), 1);
+                if (origen == null) {
+                    return null; // No valid sede found
+                }
+            }
+            
+            List<Vuelo> vuelosDirectos = contexto.getVuelosDirectos(origen, paquete.getAeropuertoDestino());
             
             for (Vuelo vuelo : vuelosDirectos) {
-                Ruta rutaDirecta = ConstruccionEstrategia.crearRutaDirecta(vuelo, paquete);
+                Ruta rutaDirecta = ConstruccionEstrategia.crearRutaDirecta(vuelo, paquete, origen);
                 if (ConstruccionEstrategia.esRutaBasicamenteFactible(rutaDirecta)) {
                     return rutaDirecta;
                 }
             }
             
-            List<String> rutaBFS = contexto.encontrarRutaMasCorta(
-                paquete.getAeropuertoOrigen(), paquete.getAeropuertoDestino()
-            );
+            List<String> rutaBFS = contexto.encontrarRutaMasCorta(origen, paquete.getAeropuertoDestino());
             
             if (rutaBFS.size() >= 3) {
                 return ConstruccionEstrategia.crearRutaConConexiones(rutaBFS, contexto, paquete);
@@ -165,9 +168,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         }
     }
     
-    // ================================================================================
-    // ESTRATEGIA MENOR COSTO
-    // ================================================================================
     
     private static class EstrategiaMenorCosto implements EstrategiaSeleccion {
         
@@ -257,7 +257,7 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         
         @Override
         public List<String> ordenarPaquetes(List<String> paquetes, ContextoProblema contexto) {
-            return new ArrayList<>(paquetes); // Sin ordenamiento especial
+            return new ArrayList<>(paquetes);
         }
         
         @Override
@@ -312,12 +312,23 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         public Ruta seleccionarMejorRuta(String paqueteId, Paquete paquete, ContextoProblema contexto, 
                                         ValidadorRestricciones validador, Solucion solucionActual) {
             
+            // Handle null origin using SedeSelector
             String origen = paquete.getAeropuertoOrigen();
+            if (origen == null) {
+                com.grupo5e.morapack.algorithm.alns.SedeSelector sedeSelector = 
+                    new com.grupo5e.morapack.algorithm.alns.SedeSelector(contexto);
+                origen = sedeSelector.seleccionarMejorSede(paquete.getAeropuertoDestino(), 
+                    java.time.LocalDateTime.now(), 1);
+                if (origen == null) {
+                    return null; // No valid sede found
+                }
+            }
+            
             String destino = paquete.getAeropuertoDestino();
             
             List<Vuelo> vuelosDirectos = contexto.getVuelosDirectos(origen, destino);
             for (Vuelo vuelo : vuelosDirectos) {
-                Ruta rutaDirecta = ConstruccionEstrategia.crearRutaDirecta(vuelo, paquete);
+                Ruta rutaDirecta = ConstruccionEstrategia.crearRutaDirecta(vuelo, paquete, origen);
                 if (validador.esRutaFactible(paqueteId, rutaDirecta, solucionActual)) {
                     return rutaDirecta;
                 }
@@ -331,37 +342,42 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
                 }
             }
             
-            return null; // No hay ruta factible que respete restricciones
+            return null;
         }
         
         @Override
         public void manejarPaqueteNoRuteado(String paqueteId, Paquete paquete, Solucion solucion) {
-            System.out.println("No se pudo rutear " + paqueteId + " respetando capacidades");
+            System.out.println("Could not route " + paqueteId + " respecting capacities");
         }
     }
     
-    // ================================================================================
-    // MÉTODOS UTILITARIOS COMUNES
-    // ================================================================================
     
     private static List<Ruta> generarRutasFactibles(Paquete paquete, ContextoProblema contexto) {
         List<Ruta> rutas = new ArrayList<>();
         
-        // Rutas directas
-        List<Vuelo> vuelosDirectos = contexto.getVuelosDirectos(
-            paquete.getAeropuertoOrigen(), paquete.getAeropuertoDestino()
-        );
+        // Handle null origin using SedeSelector
+        String origen = paquete.getAeropuertoOrigen();
+        if (origen == null) {
+            com.grupo5e.morapack.algorithm.alns.SedeSelector sedeSelector = 
+                new com.grupo5e.morapack.algorithm.alns.SedeSelector(contexto);
+            origen = sedeSelector.seleccionarMejorSede(paquete.getAeropuertoDestino(), 
+                java.time.LocalDateTime.now(), 1);
+            if (origen == null) {
+                return rutas; // No valid sede found
+            }
+        }
+        
+        // Direct routes
+        List<Vuelo> vuelosDirectos = contexto.getVuelosDirectos(origen, paquete.getAeropuertoDestino());
         
         for (Vuelo vuelo : vuelosDirectos) {
-            Ruta rutaDirecta = ConstruccionEstrategia.crearRutaDirecta(vuelo, paquete);
+            Ruta rutaDirecta = ConstruccionEstrategia.crearRutaDirecta(vuelo, paquete, origen);
             if (ConstruccionEstrategia.esRutaBasicamenteFactible(rutaDirecta)) {
                 rutas.add(rutaDirecta);
             }
         }
         
-        List<String> rutaBFS = contexto.encontrarRutaMasCorta(
-            paquete.getAeropuertoOrigen(), paquete.getAeropuertoDestino()
-        );
+        List<String> rutaBFS = contexto.encontrarRutaMasCorta(origen, paquete.getAeropuertoDestino());
         
         if (rutaBFS.size() >= 3) {
             Ruta rutaConexion = ConstruccionEstrategia.crearRutaConConexiones(rutaBFS, contexto, paquete);
@@ -373,12 +389,12 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
         return rutas;
     }
     
-    private static Ruta crearRutaDirecta(Vuelo vuelo, Paquete paquete) {
+    private static Ruta crearRutaDirecta(Vuelo vuelo, Paquete paquete, String origen) {
         Ruta ruta = new Ruta("ruta_directa_" + System.currentTimeMillis(), paquete.getId());
         
         SegmentoRuta segmento = new SegmentoRuta(
             "seg_" + System.currentTimeMillis(),
-            paquete.getAeropuertoOrigen(),
+            origen,
             paquete.getAeropuertoDestino(),
             vuelo.getNumeroVuelo(),
             vuelo.isMismoContinente()
@@ -397,10 +413,10 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
             
             List<Vuelo> vuelosSegmento = contexto.getVuelosDirectos(origenSegmento, destinoSegmento);
             if (vuelosSegmento.isEmpty()) {
-                return null; // No hay vuelo para este segmento
+                return null;
             }
             
-            Vuelo vuelo = vuelosSegmento.get(0); // Tomar primer vuelo disponible
+            Vuelo vuelo = vuelosSegmento.get(0);
             SegmentoRuta segmento = new SegmentoRuta(
                 "seg_" + i + "_" + System.currentTimeMillis(),
                 origenSegmento,
@@ -451,7 +467,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
                         // System.out.println("   [CAPACIDAD] Reservado en " + numeroVuelo + 
                         //                  " (" + vuelo.getPaquetesReservados() + "/" + vuelo.getCapacidadMaxima() + ")");
                     } catch (IllegalStateException e) {
-                        System.out.println("   [ERROR] Vuelo " + numeroVuelo + " LLENO: " + e.getMessage());
                     }
                     break;
                 }
@@ -476,7 +491,6 @@ public class ConstruccionEstrategia implements OperadorConstruccion {
                     // System.out.println("   [ALMACEN] " + aeropuertoDestino + 
                     //                  " (" + aeropuerto.getPaquetesEnAlmacen() + "/" + aeropuerto.getCapacidadAlmacen() + ")");
                 } catch (IllegalStateException e) {
-                    System.out.println("   [ERROR] Almacén " + aeropuertoDestino + " LLENO: " + e.getMessage());
                 }
             }
         }

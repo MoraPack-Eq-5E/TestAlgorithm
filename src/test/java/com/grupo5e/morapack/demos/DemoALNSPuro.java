@@ -12,39 +12,39 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 /**
- * Demo de ALNS puro - sin SedeSelector.
- * El algoritmo decide dinámicamente desde qué sede MoraPack enviar cada paquete.
- * Muestra progreso por iteración y mejor resultado final.
+ * Pure ALNS demo - without SedeSelector.
+ * Algorithm dynamically decides which MoraPack sede to send each package from.
+ * Shows progress per iteration and best final result.
  */
 public class DemoALNSPuro {
     
     private static final String PEDIDOS_CSV_FILE = "data/pedidos_generados.csv";
     
     public static void main(String[] args) {
-        System.out.println("🚀 === DEMO: ALNS PURO MULTI-DEPOT ===");
-        System.out.println("El algoritmo decide dinámicamente desde qué sede enviar cada paquete\n");
+        System.out.println("=== DEMO: PURE ALNS MULTI-DEPOT ===");
+        System.out.println("Algorithm dynamically decides which sede to send each package from\n");
         
         try {
-            // 1. CARGAR DATOS
-            System.out.println("📂 1. Cargando datos...");
+            // 1. LOAD DATA
+            System.out.println("1. Loading data...");
             DatosCompletos datos = cargarDatos();
             
-            // 2. CREAR PAQUETES SIN SEDE PRE-ASIGNADA
-            System.out.println("\n📦 2. Creando paquetes para ALNS puro...");
+            // 2. CREATE PACKAGES WITHOUT PRE-ASSIGNED SEDE
+            System.out.println("\n2. Creating packages for pure ALNS...");
             List<Paquete> paquetesSinSede = crearPaquetesSinSede(datos);
             
-            // 3. CREAR CONTEXTO PARA ALNS
-            System.out.println("\n🧠 3. Preparando contexto ALNS...");
+            // 3. CREATE CONTEXT FOR ALNS
+            System.out.println("\n3. Preparing ALNS context...");
             ContextoProblema contexto = new ContextoProblema(
                 paquetesSinSede, datos.aeropuertos, datos.vuelos, datos.continentes
             );
             
-            // 4. EJECUTAR ALNS CON PROGRESO
-            System.out.println("\n⚡ 4. EJECUTANDO ALNS PURO");
+            // 4. EXECUTE ALNS WITH PROGRESS
+            System.out.println("\n4. EXECUTING PURE ALNS");
             ejecutarALNSConProgreso(contexto);
             
         } catch (Exception e) {
-            System.err.println("❌ Error: " + e.getMessage());
+            System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -54,34 +54,34 @@ public class DemoALNSPuro {
         List<Vuelo> vuelos = MoraPackDataLoader.cargarVuelos(aeropuertos);
         Set<Continente> continentes = MoraPackDataLoader.crearContinentes(aeropuertos);
         
-        // USAR CAPACIDADES ORIGINALES (no reducidas)
-        System.out.printf("   ✅ %d aeropuertos, %d vuelos, %d continentes%n", 
+        // Use original capacities (not reduced)
+        System.out.printf("   %d airports, %d flights, %d continents%n", 
                          aeropuertos.size(), vuelos.size(), continentes.size());
-        System.out.println("   🎯 Capacidades ORIGINALES (comportamiento natural)");
+        System.out.println("   Original capacities (natural behavior)");
         
         return new DatosCompletos(aeropuertos, vuelos, continentes);
     }
     
     /**
-     * Reduce las capacidades de vuelos solo para esta demo, para forzar conexiones naturales
+     * Reduces flight capacities only for this demo, to force natural connections
      */
     private static List<Vuelo> reducirCapacidadesParaDemo(List<Vuelo> vuelosOriginales) {
         List<Vuelo> vuelosReducidos = new ArrayList<>();
         
         for (Vuelo vueloOriginal : vuelosOriginales) {
-            // Crear copia con capacidad reducida
+            // Create copy with reduced capacity
             int capacidadOriginal = vueloOriginal.getCapacidadMaxima();
-            int capacidadReducida = Math.min(capacidadOriginal, 120); // Máx 120 paquetes
+            int capacidadReducida = Math.min(capacidadOriginal, 120); // Max 120 packages
             
             Vuelo vueloReducido = new Vuelo(
                 vueloOriginal.getNumeroVuelo(),
                 vueloOriginal.getAeropuertoOrigen(),
                 vueloOriginal.getAeropuertoDestino(),
                 vueloOriginal.isMismoContinente(),
-                capacidadReducida // ← CAPACIDAD REDUCIDA
+                capacidadReducida // Reduced capacity
             );
             
-            // Copiar otros atributos
+            // Copy other attributes
             vueloReducido.setHoraSalida(vueloOriginal.getHoraSalida());
             vueloReducido.setHoraLlegada(vueloOriginal.getHoraLlegada());
             vueloReducido.setDuracionHoras(vueloOriginal.getDuracionHoras());
@@ -98,9 +98,9 @@ public class DemoALNSPuro {
         try {
             List<String> lineas = Files.readAllLines(Paths.get(PEDIDOS_CSV_FILE));
             
-            // USAR DATA ORIGINAL SIN SATURACIÓN ARTIFICIAL - LIMITADO PARA DEBUG
-            int totalPedidos = Math.min(10, lineas.size() - 1); // ← REDUCIDO PARA DEBUG
-            System.out.printf("   📦 DATA ORIGINAL DEBUG: %d pedidos%n", totalPedidos);
+            // Use original data without artificial saturation - limited for debug
+            int totalPedidos = Math.min(10, lineas.size() - 1); // Reduced for debug
+            System.out.printf("   Original data debug: %d orders%n", totalPedidos);
             
             for (int i = 1; i <= totalPedidos; i++) {
                 String linea = lineas.get(i).trim();
@@ -113,11 +113,11 @@ public class DemoALNSPuro {
                 String clienteId = partes[5].trim();
                 int cantidad = Integer.parseInt(partes[4].trim());
                 
-                // USAR CANTIDAD ORIGINAL SIN MULTIPLICADORES
+                // Use original quantity without multipliers
                 for (int j = 0; j < cantidad; j++) {
                     String paqueteId = String.format("PKG_%s_%03d_%02d", clienteId, cantidad, j + 1);
                     
-                    // ⚡ CLAVE: Paquete SIN aeropuertoOrigen fijo - ALNS decidirá
+                    // Key: Package WITHOUT fixed aeropuertoOrigen - ALNS will decide
                     Paquete paquete = new Paquete(paqueteId, null, destino, clienteId);
                     paquete.setPrioridad((j % 3) + 1);
                     paquete.setFechaLimiteEntrega(LocalDateTime.now().plusDays(3));
@@ -126,12 +126,12 @@ public class DemoALNSPuro {
             }
             
         } catch (IOException e) {
-            System.err.println("Error leyendo pedidos: " + e.getMessage());
+            System.err.println("Error reading orders: " + e.getMessage());
             paquetes.addAll(crearPaquetesRespaldo());
         }
         
-        System.out.printf("   ✅ %d paquetes creados (DATA ORIGINAL)%n", paquetes.size());
-        System.out.printf("   🎯 Capacidades naturales → Conexiones cuando sea necesario%n");
+        System.out.printf("   %d packages created (ORIGINAL DATA)%n", paquetes.size());
+        System.out.printf("   Natural capacities → Connections when necessary%n");
         
         return paquetes;
     }
@@ -144,8 +144,8 @@ public class DemoALNSPuro {
     }
     
     private static void ejecutarALNSConProgreso(ContextoProblema contexto) {
-        // Configurar ALNS para DEBUG - parámetros mínimos
-        ALNSSolver solver = new ALNSSolver(10, 1000.0, 0.95); // 3 iteraciones para debug
+        // Configure ALNS for DEBUG - minimal parameters
+        ALNSSolver solver = new ALNSSolver(50, 100.0, 0.99); // Más iteraciones, temperatura más baja, enfriamiento más lento
         
         solver.configurarProblema(
             new ArrayList<>(contexto.getTodosPaquetes()),
@@ -154,65 +154,63 @@ public class DemoALNSPuro {
             contexto.getContinentes()
         );
         
-        System.out.println("   🎯 Configuración DEBUG: 3 iteraciones, 10 pedidos (30 seg)");
-        System.out.println("   💡 Identificando problema de rendimiento...");
-        System.out.println("   🔄 Iniciando optimización ALNS...\n");
+        System.out.println("   DEBUG configuration: 10 iterations, 10 orders (30 sec)");
+        System.out.println("   Identifying performance problem...");
+        System.out.println("   Starting ALNS optimization...\n");
         
-        // Ejecutar con seguimiento de progreso
+        // Execute with progress tracking
         long inicio = System.currentTimeMillis();
         Solucion resultado = solver.resolver();
         long fin = System.currentTimeMillis();
         
-        // Mostrar progreso del historial
+        // Show progress from history
         mostrarProgresoIteraciones(solver.getHistorialFitness());
         
-        // Mostrar resultado final CON fitness experimental
+        // Show final result WITH experimental fitness
         mostrarResultadoCompleto(resultado, contexto, fin - inicio);
     }
     
     private static void mostrarProgresoIteraciones(List<Double> historial) {
-        System.out.println("📈 PROGRESO OPTIMIZACIÓN (Función Objetivo):");
+        System.out.println("OPTIMIZATION PROGRESS (Objective Function):");
         for (int i = 0; i < historial.size(); i++) {
-            System.out.printf("Iteracion %d: FObjetivo %.2f%n", i + 1, historial.get(i));
+            System.out.printf("Iteration %d: FObjective %.2f%n", i + 1, historial.get(i));
         }
         System.out.println();
     }
     
     private static void mostrarResultadoCompleto(Solucion resultado, ContextoProblema contexto, long tiempo) {
-        System.out.println("🏆 RESULTADO FINAL ALNS:");
-        System.out.println("   ┌─────────────────────────────────────────────────────────────┐");
-        System.out.printf("   │ ⏱️  Tiempo total: %d ms                                 │%n", tiempo);
-        System.out.printf("   │ 📦 Paquetes ruteados: %d/%d                              │%n", 
+        System.out.println("FINAL ALNS RESULT:");
+        System.out.printf("   Total time: %d ms%n", tiempo);
+        System.out.printf("   Routed packages: %d/%d%n", 
                          resultado.getRutasPaquetes().size(), contexto.getTodosPaquetes().size());
-        System.out.printf("   │ ✅ Solución factible: %-3s                              │%n", 
-                         resultado.isEsFactible() ? "Sí" : "No");
-        System.out.printf("   │ 🎯 Función Objetivo: %.2f                              │%n", resultado.getFuncionObjetivo());
-        System.out.printf("   │ ⚠️  Violaciones: %d                                       │%n", 
+        System.out.printf("   Feasible solution: %s%n", 
+                         resultado.isEsFactible() ? "Yes" : "No");
+        System.out.printf("   Objective Function: %.2f%n", resultado.getFuncionObjetivo());
+        System.out.printf("   Violations: %d%n", 
                          resultado.getViolacionesRestricciones());
-        System.out.println("   └─────────────────────────────────────────────────────────────┘");
         
-        // AQUÍ se calcula el fitness experimental AL FINAL de la ejecución completa
+        // Calculate experimental fitness at the END of complete execution
         System.out.println();
-        System.out.println("🔬 EVALUACIÓN EXPERIMENTAL (Para comparación académica):");
+        System.out.println("EXPERIMENTAL EVALUATION (For academic comparison):");
         try {
             double fitnessExperimental = FitnessExperimental.calcular(resultado, contexto);
-            System.out.printf("   📊 Fitness Experimental: %.4f%n", fitnessExperimental);
-            System.out.println("   ℹ️  (Este valor se usa para comparar con otros algoritmos)");
+            System.out.printf("   Experimental Fitness: %.4f%n", fitnessExperimental);
+            System.out.println("   (This value is used to compare with other algorithms)");
             
-            // Mostrar desglose detallado
+            // Show detailed breakdown
             System.out.println();
-            System.out.println("📈 DESGLOSE DETALLADO:");
+            System.out.println("DETAILED BREAKDOWN:");
             String detalle = FitnessExperimental.calcularDetallado(resultado, contexto);
             System.out.println(detalle);
             
         } catch (Exception e) {
-            System.out.println("   ❌ Error calculando fitness experimental: " + e.getMessage());
+            System.out.println("   Error calculating experimental fitness: " + e.getMessage());
         }
         
         System.out.println();
     }
     
-    // ==================== MÉTODOS AUXILIARES ====================
+    // AUXILIARY METHODS
     
     private static List<Paquete> crearPaquetesRespaldo() {
         List<Paquete> paquetes = new ArrayList<>();
@@ -223,7 +221,7 @@ public class DemoALNSPuro {
             String destino = destinos[i % destinos.length];
             String clienteId = "CLI_" + (1000 + i);
             
-            // Paquete SIN sede pre-asignada
+            // Package WITHOUT pre-assigned sede
             Paquete paquete = new Paquete(paqueteId, null, destino, clienteId);
             paquete.setPrioridad((i % 3) + 1);
             paquetes.add(paquete);
@@ -233,7 +231,7 @@ public class DemoALNSPuro {
     }
     
     /**
-     * Clase para contener datos cargados
+     * Class to contain loaded data
      */
     private static class DatosCompletos {
         final List<Aeropuerto> aeropuertos;

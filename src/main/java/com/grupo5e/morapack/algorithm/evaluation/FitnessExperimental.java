@@ -219,23 +219,23 @@ public class FitnessExperimental {
         double costoReal = solucion.getCostoTotal();
         
         return String.format(
-            "🏆 FITNESS EXPERIMENTAL MORAPACK V3 (Escala Alta):\n" +
-            "  💯 FITNESS FINAL = %.0f PUNTOS\n" +
+            "FITNESS EXPERIMENTAL MORAPACK V3 (Escala Alta):\n" +
+            "  FITNESS FINAL = %.0f PUNTOS\n" +
             "  \n" +
-            "  📊 COMPONENTES EN ESCALA ALTA:\n" +
-            "  🎯 Base garantizada: %.0f puntos\n" +
-            "  ⏱️  Tiempo (T): %.3f → %.0f × %.2f = %.0f pts\n" +
-            "  🕒 Ventana (W): %.3f → %.0f × %.2f = %.0f pts\n" +
-            "  💰 Costo (C): %.3f → %.0f × %.2f = %.0f pts\n" +
-            "  ⚡ Eficiencia (E): %.3f → %.0f × %.2f = %.0f pts\n" +
+            "  COMPONENTES EN ESCALA ALTA:\n" +
+            "  Base garantizada: %.0f puntos\n" +
+            "  Tiempo (T): %.3f → %.0f × %.2f = %.0f pts\n" +
+            "  Ventana (W): %.3f → %.0f × %.2f = %.0f pts\n" +
+            "  Costo (C): %.3f → %.0f × %.2f = %.0f pts\n" +
+            "  Eficiencia (E): %.3f → %.0f × %.2f = %.0f pts\n" +
             "  \n" +
-            "  📈 RENDIMIENTO ALGORITMO:\n" +
-            "  ⏱️  Tiempo promedio: %.1f horas (%.1f días)\n" +
-            "  🎯 Eficiencia rutas: %.1f%% directas\n" +
-            "  💰 Costo optimizado: $%.0f\n" +
-            "  ✅ Restricciones: %d violaciones\n" +
+            "  RENDIMIENTO ALGORITMO:\n" +
+            "  Tiempo promedio: %.1f horas (%.1f días)\n" +
+            "  Eficiencia rutas: %.1f%% directas\n" +
+            "  Costo optimizado: $%.0f\n" +
+            "  Restricciones: %d violaciones\n" +
             "  \n" +
-            "  🚀 EXCELENTE RENDIMIENTO - Fitness en escala profesional",
+            "  EXCELENTE RENDIMIENTO - Fitness en escala profesional",
             fitness, 
             ESCALA_BASE,
             T, T_alto, PESO_TIEMPO, T_alto * PESO_TIEMPO,

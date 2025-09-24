@@ -111,11 +111,14 @@ public class ALNSSolver {
                 config.getTimeOrientedJungwirthWeightStartTimeIinSolution()));
         }
         
-        // Operadores de construcción avanzados
-        operadoresConstruccion.add(new ConstruccionMultiDepot());  // Constructor ALNS puro multi-depot
-        operadoresConstruccion.add(new ConstruccionInteligente());  // Constructor principal
+        // LITERATURA ALNS ESTÁNDAR: Solo operadores básicos y probados
         operadoresConstruccion.add(new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ));
         operadoresConstruccion.add(new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.MENOR_COSTO));
+        operadoresConstruccion.add(new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.BALANCEADA));
+        
+        // REMOVER operadores custom que pueden causar problemas
+        // operadoresConstruccion.add(new ConstruccionMultiDepot());  // CUSTOM - puede causar overfitting
+        // operadoresConstruccion.add(new ConstruccionInteligente());  // CUSTOM - demasiado complejo
         
         // Nuevos operadores Regret-k
         if (config.isUseNRegret2()) {
@@ -199,14 +202,14 @@ public class ALNSSolver {
             // Fase de destrucción (opera sobre la copia)
             OperadorDestruccion opDestruccion = seleccionarOperadorDestruccion();
             
-            // CORRECCIÓN: Calcular tamaño de destrucción con jitter aleatorio
+            // CORRECCIÓN: Calcular tamaño de destrucción más conservador
             int paquetesRuteados = solucionTemporal.getCantidadPaquetes();
             int qMin = 1; // Mínimo 1 paquete
-            int qMax = Math.max(1, (int)(paquetesRuteados * 0.4)); // Máximo 40% de paquetes ruteados
+            int qMax = Math.max(1, (int)(paquetesRuteados * 0.15)); // Máximo 15% de paquetes ruteados (más conservador)
             
-            // Jitter aleatorio: variar porcentaje entre 10-40% para escapar mesetas
-            double jitterMin = 0.10; // 10%
-            double jitterMax = 0.40; // 40%
+            // LITERATURA ALNS: Jitter más conservador para evitar destrucción excesiva
+            double jitterMin = 0.02; // 2% - mucho más conservador
+            double jitterMax = 0.10; // 10% - menos agresivo
             double porcentajeConJitter = jitterMin + random.nextDouble() * (jitterMax - jitterMin);
             
             int q = Math.max(qMin, Math.min(qMax, (int)(paquetesRuteados * porcentajeConJitter)));
@@ -238,12 +241,11 @@ public class ALNSSolver {
             Solucion nuevaSolucion = opConstruccion.construir(solucionTemporal, paquetesRemovidos, 
                                                              contextoProblema, validador);
             
-            // LOG: Estado tras construir
-            System.out.printf("   -> tras reparar: paquetes=%d, vuelos=%d, hash=%d, newF=%.3f, viol=%d, factible=%s%n",
+            // LOG: Estado tras construir (sin fitness - se calcula después)
+            System.out.printf("   -> tras reparar: paquetes=%d, vuelos=%d, hash=%d, viol=%d, factible=%s%n",
                 nuevaSolucion.getCantidadPaquetes(),
                 nuevaSolucion.getOcupacionVuelos().size(),
                 nuevaSolucion.hashCode(),
-                nuevaSolucion.getFitness(),
                 nuevaSolucion.getViolacionesRestricciones(),
                 nuevaSolucion.isEsFactible()
             );
@@ -251,10 +253,9 @@ public class ALNSSolver {
             // Validar la nueva solución (incluyendo validación temporal)
             validador.validarSolucionCompleta(nuevaSolucion);
             
-            // CORRECCIÓN: Usar fitness unificado - SOLO calcular una vez
+            // LITERATURA ALNS: Calcular fitness UNA SOLA VEZ después de reparación
             int N = contextoProblema.getTodosPaquetes().size();
-            // NO recalcular solucionActual aquí - ya está calculada
-            nuevaSolucion.actualizarFitnessConContexto(N);
+            nuevaSolucion.calcularFitness(N);
             
             double actualF = solucionActual.getFitness();
             double newF = nuevaSolucion.getFitness();
@@ -344,7 +345,7 @@ public class ALNSSolver {
         // Reset contador
         iteracionesSinMejora = 0;
         
-        System.out.printf("🔄 Restart ejecutado en iteración %d (fitness: %.2f)%n", 
+        System.out.printf("Restart ejecutado en iteración %d (fitness: %.2f)%n", 
                          iteracionActual, mejorSolucion.getFitness());
     }
     
@@ -396,20 +397,25 @@ public class ALNSSolver {
                                                    .map(Paquete::getId)
                                                    .toList();
         
-        // Verificar si hay paquetes sin origen definido (multi-depot)
-        boolean hayPaquetesSinOrigen = contextoProblema.getTodosPaquetes().stream()
-                                                      .anyMatch(p -> p.getAeropuertoOrigen() == null);
+        // LITERATURA ALNS: Solución inicial SIMPLE, no greedy extremo
+        // Usar constructor básico que permita exploración
+        OperadorConstruccion constructor = new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ);
         
-        OperadorConstruccion constructor;
-        if (hayPaquetesSinOrigen) {
-            // Usar constructor multi-depot para paquetes sin origen definido
-            constructor = new ConstruccionMultiDepot();
-        } else {
-            // Usar constructor tradicional para paquetes con origen fijo
-            constructor = new ConstruccionEstrategia(ConstruccionEstrategia.TipoEstrategia.VORAZ);
+        Solucion solucionInicial = constructor.construir(new Solucion(), todosPaquetes, contextoProblema, validador);
+        
+        // CORRECCIÓN: Usar función única para calcular fitness
+        int N = contextoProblema.getTodosPaquetes().size();
+        solucionInicial.calcularFitness(N);
+        
+        // LITERATURA ALNS: Asegurar que la solución inicial no sea demasiado optimizada
+        // Si rutea menos del 50% de paquetes, es aceptable para ALNS
+        double porcentajeRuteado = (double) solucionInicial.getCantidadPaquetes() / todosPaquetes.size();
+        if (porcentajeRuteado < 0.3) {
+            System.out.println("Solución inicial con baja cobertura (" + String.format("%.1f", porcentajeRuteado * 100) + 
+                             "%) - ALNS puede mejorar significativamente");
         }
         
-        return constructor.construir(new Solucion(), todosPaquetes, contextoProblema, validador);
+        return solucionInicial;
     }
     
     private OperadorDestruccion seleccionarOperadorDestruccion() {

@@ -9,7 +9,9 @@ public class Constantes {
     // Constantes del algoritmo
     public static final int LIMITE_INFERIOR_ESPACIO_SOLUCION = 100;
     public static final int LIMITE_SUPERIOR_ESPACIO_SOLUCION = 200;
-    
+    public static final int MAX_VECINOS_TS = 20; // o el número que prefieras
+
+
     // Parámetros de destrucción ALNS optimizados para MoraPack
     public static final double RATIO_DESTRUCCION = 0.15;        // 15% - Ratio moderado para ALNS
     public static final int DESTRUCCION_MIN_PAQUETES = 10;      // Mínimo 10 paquetes

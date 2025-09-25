@@ -80,7 +80,7 @@ public class MoraPackNeighborhood implements Neighborhood<Solucion> {
 
     // ================== helpers ==================
 
-    /** Genera rutas como en tus constructores: directas y con una conexión, luego filtra por factibilidad. */
+    /** Genera rutas como en los constructores: directas y con una conexión, luego filtra por factibilidad. */
     private List<Ruta> generarRutasCandidatas(Paquete paquete, Solucion solucionActual) {
         List<Ruta> out = new ArrayList<>();
         String origen = paquete.getAeropuertoOrigen();

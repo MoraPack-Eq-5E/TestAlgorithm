@@ -1,97 +1,208 @@
 package com.grupo5e.morapack.utils;
 
-import com.grupo5e.morapack.core.model.Paquete;
 import com.grupo5e.morapack.core.model.Aeropuerto;
-import com.grupo5e.morapack.core.constants.Constants;
+import com.grupo5e.morapack.core.model.Ciudad;
+import com.grupo5e.morapack.core.enums.Continente;
+import com.grupo5e.morapack.core.model.Cliente;
+import com.grupo5e.morapack.core.model.Paquete;
+import com.grupo5e.morapack.core.enums.EstadoPaquete;
+import com.grupo5e.morapack.core.model.Producto;
+import com.grupo5e.morapack.core.enums.Estado;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 public class LectorProductos {
-
-    private ArrayList<Paquete> productos;
-    private final String filePath;
+    private ArrayList<Paquete> paquetes;
+    private final String rutaArchivo;
     private ArrayList<Aeropuerto> aeropuertos;
+    private Map<String, Aeropuerto> mapaAeropuertos;
+    private Random aleatorio;
+    private int idProducto = 1;
 
-    public LectorProductos() {
-        this.filePath = Constants.PRODUCTS_FILE_PATH;
-        this.productos = new ArrayList<>();
+    public LectorProductos(String rutaArchivo, ArrayList<Aeropuerto> aeropuertos) {
+        this.rutaArchivo = rutaArchivo;
+        this.paquetes = new ArrayList<>();
+        this.aeropuertos = aeropuertos;
+        this.aleatorio = new Random();
+        crearMapaAeropuertos();
     }
 
-    public LectorProductos(String filePath, ArrayList<Aeropuerto> aeropuertos) {
-        this.filePath = filePath;
-        this.productos = new ArrayList<>();
-        this.aeropuertos = aeropuertos;
+    private void crearMapaAeropuertos() {
+        this.mapaAeropuertos = new HashMap<>();
+        for (Aeropuerto aeropuerto : aeropuertos) {
+            mapaAeropuertos.put(aeropuerto.getCodigoIATA(), aeropuerto);
+        }
     }
 
     public ArrayList<Paquete> leerProductos() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            String line;
-            int idProducto = 1;
-            Map<String, Aeropuerto> mapaAeropuertos = crearMapaAeropuertos();
-
-            // Saltar la primera línea (header)
-            reader.readLine();
-
-            while ((line = reader.readLine()) != null) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(rutaArchivo))) {
+            String linea;
+            int idPaquete = 1;
+            
+            while ((linea = reader.readLine()) != null) {
                 // Saltar líneas vacías
-                if (line.trim().isEmpty()) {
+                if (linea.trim().isEmpty()) {
                     continue;
                 }
-
+                
                 // Parsear datos del producto
-                // Formato: dd\thh\tmm\tdest\t###\tIdClien (separado por tabulaciones)
-                String[] partes = line.split("\\t");
-                if (partes.length == 6) {
-                    int dia = Integer.parseInt(partes[0]);
+                String[] partes = linea.trim().split("\\s+");
+                if (partes.length >= 6) {
+                    int diasPrioridad = Integer.parseInt(partes[0]);
                     int hora = Integer.parseInt(partes[1]);
                     int minuto = Integer.parseInt(partes[2]);
-                    String codigoDestino = partes[3];
-                    int cantidad = Integer.parseInt(partes[4]);
-                    String idCliente = partes[5];
-
-                    // Buscar aeropuerto de destino por código IATA
-                    Aeropuerto aeropuertoDestino = mapaAeropuertos.get(codigoDestino);
-
+                    String codigoAeropuertoDestino = partes[3];
+                    int cantidadProductos = Integer.parseInt(partes[4]); // Cantidad de productos en el paquete
+                    int idCliente = Integer.parseInt(partes[5]); // ID del cliente
+                    
+                    // Buscar aeropuerto de destino
+                    Aeropuerto aeropuertoDestino = mapaAeropuertos.get(codigoAeropuertoDestino);
+                    
                     if (aeropuertoDestino != null) {
-                        // Crear objeto Paquete usando el constructor correcto
+                        // Crear cliente
+                        Cliente cliente = new Cliente();
+                        cliente.setId(String.valueOf(idCliente));
+                        cliente.setNombre("Cliente " + idCliente);
+                        cliente.setEmail("cliente" + idCliente + "@ejemplo.com");
+                        cliente.setCiudad(aeropuertoDestino.getCiudad().getNombre());
+                        
+                        // Calcular fecha de pedido y plazo de entrega
+                        LocalDateTime ahora = LocalDateTime.now();
+                        LocalDateTime fechaPedido = ahora.withHour(hora).withMinute(minuto).withSecond(0).withNano(0);
+                        
+                        // Si la fechaPedido está en el pasado, establecerla para mañana
+                        if (fechaPedido.isBefore(ahora)) {
+                            fechaPedido = fechaPedido.plusDays(1);
+                        }
+                        
+                        // Establecer plazo de entrega basado en días de prioridad
+                        LocalDateTime plazoEntrega;
+                        switch (diasPrioridad) {
+                            case 1:  // Prioridad más alta - 1 día
+                                plazoEntrega = fechaPedido.plus(1, ChronoUnit.DAYS);
+                                break;
+                            case 4:  // Prioridad media - 4 días
+                                plazoEntrega = fechaPedido.plus(4, ChronoUnit.DAYS);
+                                break;
+                            case 12: // Prioridad baja - 12 días
+                                plazoEntrega = fechaPedido.plus(12, ChronoUnit.DAYS);
+                                break;
+                            case 24: // Prioridad más baja - 24 días
+                                plazoEntrega = fechaPedido.plus(24, ChronoUnit.DAYS);
+                                break;
+                            default: // Por defecto 7 días
+                                plazoEntrega = fechaPedido.plus(7, ChronoUnit.DAYS);
+                                break;
+                        }
+                        
+                        // Crear objeto Paquete
                         Paquete paquete = new Paquete();
-                        paquete.setId(String.valueOf(idProducto++));
-                        paquete.setAeropuertoOrigen("LIM"); // Aeropuerto de origen por defecto (Lima)
-                        paquete.setAeropuertoDestino(codigoDestino);
-                        paquete.setClienteId(idCliente);
-                        paquete.setFechaLimiteEntrega(calcularFechaEntrega(dia, hora, minuto));
-                        paquete.setEstado(com.grupo5e.morapack.core.enums.EstadoGeneral.CREADO);
-
-                        productos.add(paquete);
+                        paquete.setId(idPaquete++);
+                        paquete.setCliente(cliente);
+                        paquete.setCiudadDestino(aeropuertoDestino.getCiudad());
+                        paquete.setFechaPedido(fechaPedido);
+                        paquete.setFechaLimiteEntrega(plazoEntrega);
+                        paquete.setEstado(EstadoPaquete.PENDIENTE);
+                        
+                        // Crear productos para este paquete
+                        ArrayList<Producto> productos = new ArrayList<>();
+                        for (int i = 0; i < cantidadProductos; i++) {
+                            Producto producto = new Producto();
+                            producto.setId(idProducto++);
+                            producto.setEstado(Estado.NO_ASIGNADO); // Producto no asignado inicialmente
+                            productos.add(producto);
+                        }
+                        paquete.setProductos(productos);
+                        
+                        // Asumir que el paquete comienza en un almacén aleatorio en un continente diferente
+                        Ciudad ubicacionActual = obtenerUbicacionAlmacenAleatoria(aeropuertoDestino.getCiudad().getContinente());
+                        paquete.setUbicacionActual(ubicacionActual);
+                        
+                        // Establecer prioridad basada en ventana de tiempo de entrega
+                        double valorPrioridad = calcularPrioridad(fechaPedido, plazoEntrega);
+                        paquete.setPrioridad(valorPrioridad);
+                        
+                        paquetes.add(paquete);
                     }
                 }
             }
-
+            
         } catch (IOException e) {
             System.err.println("Error leyendo datos de productos: " + e.getMessage());
             e.printStackTrace();
         }
-
-        return productos;
+        
+        return paquetes;
     }
-
-    private Map<String, Aeropuerto> crearMapaAeropuertos() {
-        Map<String, Aeropuerto> mapa = new HashMap<>();
+    
+    private Ciudad obtenerUbicacionAlmacenAleatoria(Continente continenteDestino) {
+        // MoraPack tiene sedes en Lima (Perú), Bruselas (Bélgica) y Bakú (Azerbaiyán)
+        // Los paquetes deben comenzar desde una de estas tres ubicaciones con stock ilimitado
+        
+        ArrayList<Ciudad> almacenesMoraPack = new ArrayList<>();
+        
+        // Buscar ciudades de almacenes MoraPack
         for (Aeropuerto aeropuerto : aeropuertos) {
-            mapa.put(aeropuerto.getCodigoIATA(), aeropuerto);
+            Ciudad ciudad = aeropuerto.getCiudad();
+            String nombreCiudad = ciudad.getNombre();
+            
+            if (nombreCiudad.equals("Lima") || nombreCiudad.equals("Bruselas") || nombreCiudad.equals("Baku") ||
+                nombreCiudad.contains("Lima") || nombreCiudad.contains("Bruselas") || nombreCiudad.contains("Baku")) {
+                // Preferir almacenes en continente diferente al destino para maximizar cobertura
+                if (ciudad.getContinente() != continenteDestino) {
+                    almacenesMoraPack.add(ciudad);
+                }
+            }
         }
-        return mapa;
+        
+        // Si no hay almacenes en continente diferente, permitir cualquier almacén MoraPack
+        if (almacenesMoraPack.isEmpty()) {
+            for (Aeropuerto aeropuerto : aeropuertos) {
+                Ciudad ciudad = aeropuerto.getCiudad();
+                String nombreCiudad = ciudad.getNombre();
+                
+                if (nombreCiudad.equals("Lima") || nombreCiudad.equals("Bruselas") || nombreCiudad.equals("Baku") ||
+                    nombreCiudad.contains("Lima") || nombreCiudad.contains("Bruselas") || nombreCiudad.contains("Baku")) {
+                    almacenesMoraPack.add(ciudad);
+                }
+            }
+        }
+        
+        // Si de alguna manera no se encuentran almacenes MoraPack (no debería pasar), usar Lima como respaldo
+        if (almacenesMoraPack.isEmpty()) {
+            System.err.println("Advertencia: No se encontraron almacenes MoraPack, usando respaldo");
+            for (Aeropuerto aeropuerto : aeropuertos) {
+                if (aeropuerto.getCiudad().getNombre().contains("Lima")) {
+                    return aeropuerto.getCiudad();
+                }
+            }
+        }
+        
+        // Retornar almacén MoraPack aleatorio
+        return almacenesMoraPack.get(aleatorio.nextInt(almacenesMoraPack.size()));
     }
-
-    private LocalDateTime calcularFechaEntrega(int dia, int hora, int minuto) {
-        // Calcular fecha de entrega basada en día, hora y minuto
-        LocalDateTime fechaBase = LocalDateTime.now();
-        return fechaBase.plusDays(dia).withHour(hora).withMinute(minuto).withSecond(0).withNano(0);
+    
+    private double calcularPrioridad(LocalDateTime fechaPedido, LocalDateTime plazoEntrega) {
+        // Calcular prioridad basada en ventana de tiempo
+        long horas = ChronoUnit.HOURS.between(fechaPedido, plazoEntrega);
+        
+        // Normalizar prioridad: ventanas de entrega más cortas obtienen mayor prioridad (1.0 es la más alta)
+        if (horas <= 24) {
+            return 1.0; // Prioridad más alta para entrega de 1 día
+        } else if (horas <= 96) {
+            return 0.75; // Alta prioridad para entrega de 4 días
+        } else if (horas <= 288) {
+            return 0.5; // Prioridad media para entrega de 12 días
+        } else {
+            return 0.25; // Prioridad baja para entrega de 24 días
+        }
     }
 }

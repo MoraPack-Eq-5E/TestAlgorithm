@@ -1,6 +1,7 @@
 package com.grupo5e.morapack.core.model;
 
 import com.grupo5e.morapack.core.enums.EstadoPaquete;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

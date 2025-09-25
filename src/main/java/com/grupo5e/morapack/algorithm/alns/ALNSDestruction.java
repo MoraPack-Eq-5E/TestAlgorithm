@@ -1,7 +1,13 @@
 package com.grupo5e.morapack.algorithm.alns;
 
-import com.grupo5e.morapack.core.model.*;
-import java.util.*;
+import com.grupo5e.morapack.core.model.Vuelo;
+import com.grupo5e.morapack.core.model.Paquete;
+import com.grupo5e.morapack.core.enums.Continente;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+import java.util.Collections;
 import java.time.temporal.ChronoUnit;
 
 /**
@@ -13,43 +19,40 @@ import java.time.temporal.ChronoUnit;
  */
 public class ALNSDestruction {
     
-    private Random generadorAleatorio;
+    private Random aleatorio;
     
     public ALNSDestruction() {
-        this.generadorAleatorio = new Random(System.currentTimeMillis());
+        this.aleatorio = new Random(System.currentTimeMillis());
     }
     
     /**
      * Constructor con semilla específica para pruebas deterministas
      */
     public ALNSDestruction(long semilla) {
-        this.generadorAleatorio = new Random(semilla);
+        this.aleatorio = new Random(semilla);
     }
     
     /**
      * CORRECCIÓN: Helpers para cálculos precisos de slack y productos
      */
-    private static double horasRuta(Ruta ruta) {
-        if (ruta == null || ruta.getVuelos().isEmpty()) return Double.POSITIVE_INFINITY;
+    private static double horasRuta(ArrayList<Vuelo> ruta) {
+        if (ruta == null || ruta.isEmpty()) return Double.POSITIVE_INFINITY;
         double h = 0;
-        for (Vuelo vuelo : ruta.getVuelos()) {
-            h += vuelo.getTiempoTransporte();
-        }
-        if (ruta.getVuelos().size() > 1) h += (ruta.getVuelos().size() - 1) * 2.0; // conexiones de 2h
+        for (Vuelo f : ruta) h += f.getTiempoTransporte();
+        if (ruta.size() > 1) h += (ruta.size() - 1) * 2.0; // conexiones de 2h
         return h;
     }
     
-    private static int productosDe(Paquete pkg) {
-        // En el modelo actual, cada paquete representa 1 producto
-        return 1;
+    private static int productosDe(Paquete paquete) {
+        return (paquete.getProductos() != null && !paquete.getProductos().isEmpty()) ? paquete.getProductos().size() : 1;
     }
     
     /**
-     * CORRECCIÓN: Slack real - horas disponibles desde fechaCreacion menos horas de la ruta actual
-     * REFINAMIENTO: Clampar slack negativo por deadlines raros (deadline < fechaCreacion)
+     * CORRECCIÓN: Slack real - horas disponibles desde fechaPedido menos horas de la ruta actual
+     * REFINAMIENTO: Clampar slack negativo por deadlines raros (deadline < fechaPedido)
      */
-    private static double slackHoras(Paquete pkg, Ruta ruta) {
-        long presupuesto = ChronoUnit.HOURS.between(pkg.getFechaPedido(), pkg.getFechaLimiteEntrega());
+    private static double slackHoras(Paquete paquete, ArrayList<Vuelo> ruta) {
+        long presupuesto = ChronoUnit.HOURS.between(paquete.getFechaPedido(), paquete.getFechaLimiteEntrega());
         // REFINAMIENTO: Clampar budget negativo a 0 para evitar data mala
         if (presupuesto < 0) {
             presupuesto = 0; // Deadline en el pasado o mal configurado
@@ -62,121 +65,119 @@ public class ALNSDestruction {
      * REFINAMIENTO: Verificar si un paquete ya está en destino (ruta null/empty)
      * Estos paquetes no liberan capacidad de vuelo
      */
-    private static boolean yaEnDestino(Ruta ruta) {
-        return ruta == null || ruta.getVuelos().isEmpty();
+    private static boolean yaEstaEnDestino(ArrayList<Vuelo> ruta) {
+        return ruta == null || ruta.isEmpty();
     }
     
     /**
      * CORRECCIÓN: Destrucción aleatoria mejorada - sesgo por mayor slack y más productos
      */
-    public DestructionResult randomDestroy(
-            HashMap<Paquete, Ruta> solucionActual,
-            double tasaDestruccion,
+    public ResultadoDestruccion destruccionAleatoria(
+            HashMap<Paquete, ArrayList<Vuelo>> solucionActual,
+            double ratioDestruccion,
             int minDestruir,
             int maxDestruir) {
         
-        HashMap<Paquete, Ruta> solucionParcial = new HashMap<>(solucionActual);
+        HashMap<Paquete, ArrayList<Vuelo>> solucionParcial = new HashMap<>(solucionActual);
         
         if (solucionActual.isEmpty()) {
-            return new DestructionResult(solucionParcial, new ArrayList<>());
+            return new ResultadoDestruccion(solucionParcial, new ArrayList<>());
         }
         
         // CORRECCIÓN: Construir lista con score = w1*slack + w2*productos
         class Candidato { 
             Paquete paquete; 
-            double puntaje; 
+            double puntuacion; 
         }
         
         ArrayList<Candidato> candidatos = new ArrayList<>();
-        for (Map.Entry<Paquete, Ruta> entrada : solucionActual.entrySet()) {
-            Paquete p = entrada.getKey();
-            Ruta r = entrada.getValue();
+        for (Map.Entry<Paquete, ArrayList<Vuelo>> e : solucionActual.entrySet()) {
+            Paquete p = e.getKey();
+            ArrayList<Vuelo> r = e.getValue();
             double slack = slackHoras(p, r);
             int productos = productosDe(p);
             
             // REFINAMIENTO: Penalizar fuertemente paquetes ya en destino (no liberan capacidad de vuelo)
-            if (yaEnDestino(r)) {
+            if (yaEstaEnDestino(r)) {
                 slack = slack * 0.1; // Reducir significativamente su prioridad
             }
             
-            double puntaje = 1.0 * slack + 0.2 * productos; // pesos: slack y productos
+            double puntuacion = 1.0 * slack + 0.2 * productos; // pesos: slack y productos
             
             Candidato c = new Candidato();
             c.paquete = p; 
-            c.puntaje = puntaje;
+            c.puntuacion = puntuacion;
             candidatos.add(c);
         }
         
-        // CORRECCIÓN: Ordenar por score desc y destruir los top-k con diversidad
-        candidatos.sort((a, b) -> Double.compare(b.puntaje, a.puntaje));
+        // CORRECCIÓN: Ordenar por puntuacion desc y destruir los top-k con diversidad
+        candidatos.sort((a, b) -> Double.compare(b.puntuacion, a.puntuacion));
         
-        int numDestruir = Math.min(
-            Math.max((int)(solucionActual.size() * tasaDestruccion), minDestruir),
+        int numADestruir = Math.min(
+            Math.max((int)(solucionActual.size() * ratioDestruccion), minDestruir),
             Math.min(maxDestruir, solucionActual.size())
         );
         
-        ArrayList<Map.Entry<Paquete, Ruta>> destruidos = new ArrayList<>();
+        ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> destruidos = new ArrayList<>();
         int tomados = 0, i = 0;
         
-        while (tomados < numDestruir && i < candidatos.size()) {
+        while (tomados < numADestruir && i < candidatos.size()) {
             // CORRECCIÓN: 10% probabilidad de saltar para diversidad
-            if (generadorAleatorio.nextDouble() < 0.10 && i + 1 < candidatos.size()) {
+            if (aleatorio.nextDouble() < 0.10 && i + 1 < candidatos.size()) {
                 i++;
             }
             
             Paquete seleccionado = candidatos.get(i).paquete;
-            Ruta ruta = solucionActual.get(seleccionado);
-            if (ruta == null) ruta = new Ruta(); // Protección contra nulos
+            ArrayList<Vuelo> ruta = solucionActual.get(seleccionado);
+            if (ruta == null) ruta = new ArrayList<>(); // Protección contra nulos
             
-            destruidos.add(new java.util.AbstractMap.SimpleEntry<>(seleccionado, ruta));
+            destruidos.add(new java.util.AbstractMap.SimpleEntry<>(seleccionado, new ArrayList<>(ruta)));
             solucionParcial.remove(seleccionado);
             tomados++; 
             i++;
         }
         
-        return new DestructionResult(solucionParcial, destruidos);
+        return new ResultadoDestruccion(solucionParcial, destruidos);
     }
     
     /**
      * Destrucción por zona geográfica: elimina paquetes de un continente específico.
      * Útil para liberar capacidad en rutas intercontinentales.
      */
-    public DestructionResult geographicDestroy(
-            HashMap<Paquete, Ruta> solucionActual,
-            double tasaDestruccion,
+    public ResultadoDestruccion destruccionGeografica(
+            HashMap<Paquete, ArrayList<Vuelo>> solucionActual,
+            double ratioDestruccion,
             int minDestruir,
             int maxDestruir) {
         
-        HashMap<Paquete, Ruta> solucionParcial = new HashMap<>(solucionActual);
+        HashMap<Paquete, ArrayList<Vuelo>> solucionParcial = new HashMap<>(solucionActual);
         
         if (solucionActual.isEmpty()) {
-            return new DestructionResult(solucionParcial, new ArrayList<>());
+            return new ResultadoDestruccion(solucionParcial, new ArrayList<>());
         }
         
         // Contar paquetes por continente (origen y destino)
-        Map<String, ArrayList<Paquete>> paquetesPorContinenteOrigen = new HashMap<>();
-        Map<String, ArrayList<Paquete>> paquetesPorContinenteDestino = new HashMap<>();
+        Map<Continente, ArrayList<Paquete>> paquetesPorContinenteOrigen = new HashMap<>();
+        Map<Continente, ArrayList<Paquete>> paquetesPorContinenteDestino = new HashMap<>();
         
-        for (Paquete pkg : solucionActual.keySet()) {
-            String continenteOrigen = obtenerContinenteDeAeropuerto(pkg.getAeropuertoOrigen());
-            String continenteDestino = obtenerContinenteDeAeropuerto(pkg.getAeropuertoDestino());
+        for (Paquete paquete : solucionActual.keySet()) {
+            Continente continenteOrigen = paquete.getUbicacionActual().getContinente();
+            Continente continenteDestino = paquete.getCiudadDestino().getContinente();
             
-            paquetesPorContinenteOrigen.computeIfAbsent(continenteOrigen, k -> new ArrayList<>()).add(pkg);
-            paquetesPorContinenteDestino.computeIfAbsent(continenteDestino, k -> new ArrayList<>()).add(pkg);
+            paquetesPorContinenteOrigen.computeIfAbsent(continenteOrigen, k -> new ArrayList<>()).add(paquete);
+            paquetesPorContinenteDestino.computeIfAbsent(continenteDestino, k -> new ArrayList<>()).add(paquete);
         }
         
         // Seleccionar continente con más paquetes intercontinentales
-        String continenteSeleccionado = null;
+        Continente continenteSeleccionado = null;
         int maxPaquetesIntercontinentales = 0;
         
-        for (String continente : paquetesPorContinenteOrigen.keySet()) {
-            ArrayList<Paquete> paquetesOrigen = paquetesPorContinenteOrigen.get(continente);
+        for (Continente continente : Continente.values()) {
+            ArrayList<Paquete> paquetesOrigen = paquetesPorContinenteOrigen.getOrDefault(continente, new ArrayList<>());
             int conteoIntercontinental = 0;
             
-            for (Paquete pkg : paquetesOrigen) {
-                String continenteOrigen = obtenerContinenteDeAeropuerto(pkg.getAeropuertoOrigen());
-                String continenteDestino = obtenerContinenteDeAeropuerto(pkg.getAeropuertoDestino());
-                if (!continenteOrigen.equals(continenteDestino)) {
+            for (Paquete paquete : paquetesOrigen) {
+                if (paquete.getUbicacionActual().getContinente() != paquete.getCiudadDestino().getContinente()) {
                     conteoIntercontinental++;
                 }
             }
@@ -188,32 +189,31 @@ public class ALNSDestruction {
         }
         
         if (continenteSeleccionado == null) {
-            return randomDestroy(solucionActual, tasaDestruccion, minDestruir, maxDestruir);
+            return destruccionAleatoria(solucionActual, ratioDestruccion, minDestruir, maxDestruir);
         }
         
         // Encontrar paquetes del continente seleccionado
         ArrayList<Paquete> paquetesCandidatos = new ArrayList<>();
-        for (Paquete pkg : solucionActual.keySet()) {
-            String continenteOrigen = obtenerContinenteDeAeropuerto(pkg.getAeropuertoOrigen());
-            String continenteDestino = obtenerContinenteDeAeropuerto(pkg.getAeropuertoDestino());
-            if (continenteOrigen.equals(continenteSeleccionado) || continenteDestino.equals(continenteSeleccionado)) {
-                paquetesCandidatos.add(pkg);
+        for (Paquete paquete : solucionActual.keySet()) {
+            if (paquete.getUbicacionActual().getContinente() == continenteSeleccionado ||
+                paquete.getCiudadDestino().getContinente() == continenteSeleccionado) {
+                paquetesCandidatos.add(paquete);
             }
         }
         
         if (paquetesCandidatos.size() < minDestruir) {
-            return randomDestroy(solucionActual, tasaDestruccion, minDestruir, maxDestruir);
+            return destruccionAleatoria(solucionActual, ratioDestruccion, minDestruir, maxDestruir);
         }
         
-        int numDestruir = Math.min(
-            Math.max((int)(paquetesCandidatos.size() * tasaDestruccion), minDestruir),
+        int numADestruir = Math.min(
+            Math.max((int)(paquetesCandidatos.size() * ratioDestruccion), minDestruir),
             Math.min(maxDestruir, paquetesCandidatos.size())
         );
         
-        ArrayList<Map.Entry<Paquete, Ruta>> paquetesDestruidos = new ArrayList<>();
+        ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos = new ArrayList<>();
         
         // REFINAMIENTO: Precomputar slack y productos para evitar recalcular en comparator
-        class InfoCandidato {
+        class InformacionCandidato {
             Paquete paquete;
             boolean intercontinental;
             double slack;
@@ -221,18 +221,16 @@ public class ALNSDestruction {
             boolean enDestino;
         }
         
-        ArrayList<InfoCandidato> candidatos = new ArrayList<>();
-        for (Paquete pkg : paquetesCandidatos) {
-            InfoCandidato info = new InfoCandidato();
-            info.paquete = pkg;
-            String continenteOrigen = obtenerContinenteDeAeropuerto(pkg.getAeropuertoOrigen());
-            String continenteDestino = obtenerContinenteDeAeropuerto(pkg.getAeropuertoDestino());
-            info.intercontinental = !continenteOrigen.equals(continenteDestino);
+        ArrayList<InformacionCandidato> candidatos = new ArrayList<>();
+        for (Paquete paquete : paquetesCandidatos) {
+            InformacionCandidato info = new InformacionCandidato();
+            info.paquete = paquete;
+            info.intercontinental = paquete.getUbicacionActual().getContinente() != paquete.getCiudadDestino().getContinente();
             
-            Ruta ruta = solucionActual.get(pkg);
-            info.slack = slackHoras(pkg, ruta);
-            info.productos = productosDe(pkg);
-            info.enDestino = yaEnDestino(ruta);
+            ArrayList<Vuelo> ruta = solucionActual.get(paquete);
+            info.slack = slackHoras(paquete, ruta);
+            info.productos = productosDe(paquete);
+            info.enDestino = yaEstaEnDestino(ruta);
             
             candidatos.add(info);
         }
@@ -261,70 +259,70 @@ public class ALNSDestruction {
         
         // Extraer los packages ordenados
         paquetesCandidatos.clear();
-        for (InfoCandidato info : candidatos) {
+        for (InformacionCandidato info : candidatos) {
             paquetesCandidatos.add(info.paquete);
         }
         
         // Seleccionar paquetes con sesgo hacia los intercontinentales
-        for (int i = 0; i < numDestruir; i++) {
+        for (int i = 0; i < numADestruir; i++) {
             Paquete paqueteSeleccionado = paquetesCandidatos.get(i);
             // REFINAMIENTO: Consistencia - usar siempre solucionActual como fuente
-            Ruta ruta = solucionActual.get(paqueteSeleccionado);
-            if (ruta == null) ruta = new Ruta(); // Protección contra nulos
+            ArrayList<Vuelo> ruta = solucionActual.get(paqueteSeleccionado);
+            if (ruta == null) ruta = new ArrayList<>(); // Protección contra nulos
             
             paquetesDestruidos.add(new java.util.AbstractMap.SimpleEntry<>(
                 paqueteSeleccionado, 
-                ruta
+                new ArrayList<>(ruta)
             ));
             
             solucionParcial.remove(paqueteSeleccionado);
         }
         
-        System.out.println("Destrucción geográfica: " + numDestruir + 
+        System.out.println("Destrucción geográfica: " + numADestruir + 
                           " paquetes eliminados del continente " + continenteSeleccionado);
         
-        return new DestructionResult(solucionParcial, paquetesDestruidos);
+        return new ResultadoDestruccion(solucionParcial, paquetesDestruidos);
     }
     
     /**
      * Destrucción por tiempo: elimina paquetes con deadlines en un rango específico.
      * Útil para rebalancear la carga temporal.
      */
-    public DestructionResult timeBasedDestroy(
-            HashMap<Paquete, Ruta> solucionActual,
-            double tasaDestruccion,
+    public ResultadoDestruccion destruccionBasadaEnTiempo(
+            HashMap<Paquete, ArrayList<Vuelo>> solucionActual,
+            double ratioDestruccion,
             int minDestruir,
             int maxDestruir) {
         
-        HashMap<Paquete, Ruta> solucionParcial = new HashMap<>(solucionActual);
+        HashMap<Paquete, ArrayList<Vuelo>> solucionParcial = new HashMap<>(solucionActual);
         
         if (solucionActual.isEmpty()) {
-            return new DestructionResult(solucionParcial, new ArrayList<>());
+            return new ResultadoDestruccion(solucionParcial, new ArrayList<>());
         }
         
         // CORRECCIÓN: Agrupar por slack real, no por "horas a deadline"
         ArrayList<Paquete> slackBajo = new ArrayList<>();    // slack ≤ 8 h (no tocar si es posible)
-        ArrayList<Paquete> slackMedio = new ArrayList<>();    // 8–32 h
-        ArrayList<Paquete> slackAlto = new ArrayList<>();   // > 32 h
-        ArrayList<Paquete> enDestino = new ArrayList<>(); // REFINAMIENTO: Separar paquetes ya en destino
+        ArrayList<Paquete> slackMedio = new ArrayList<>();   // 8–32 h
+        ArrayList<Paquete> slackAlto = new ArrayList<>();    // > 32 h
+        ArrayList<Paquete> enDestino = new ArrayList<>();   // REFINAMIENTO: Separar paquetes ya en destino
         
-        for (Map.Entry<Paquete, Ruta> entrada : solucionActual.entrySet()) {
-            Paquete pkg = entrada.getKey();
-            Ruta ruta = entrada.getValue();
+        for (Map.Entry<Paquete, ArrayList<Vuelo>> e : solucionActual.entrySet()) {
+            Paquete paquete = e.getKey();
+            ArrayList<Vuelo> ruta = e.getValue();
             
             // REFINAMIENTO: Separar paquetes ya en destino (fallback only)
-            if (yaEnDestino(ruta)) {
-                enDestino.add(pkg);
+            if (yaEstaEnDestino(ruta)) {
+                enDestino.add(paquete);
                 continue;
             }
             
-            double s = slackHoras(pkg, ruta);
+            double s = slackHoras(paquete, ruta);
             if (s <= 8) {
-                slackBajo.add(pkg);
+                slackBajo.add(paquete);
             } else if (s <= 32) {
-                slackMedio.add(pkg);
+                slackMedio.add(paquete);
             } else {
-                slackAlto.add(pkg);
+                slackAlto.add(paquete);
             }
         }
         
@@ -347,7 +345,7 @@ public class ALNSDestruction {
         }
         
         if (grupoSeleccionado.size() < minDestruir) {
-            return randomDestroy(solucionActual, tasaDestruccion, minDestruir, maxDestruir);
+            return destruccionAleatoria(solucionActual, ratioDestruccion, minDestruir, maxDestruir);
         }
         
         // REFINAMIENTO: Ordenar por productos desc para tie-break (más productos = más capacidad liberada)
@@ -362,72 +360,72 @@ public class ALNSDestruction {
         // Barajar parcialmente para diversidad (mantener bias hacia más productos en el top)
         if (grupoSeleccionado.size() > 10) {
             // Solo barajar los últimos elementos, mantener los primeros (más productos) intactos
-            Collections.shuffle(grupoSeleccionado.subList(5, grupoSeleccionado.size()), generadorAleatorio);
+            Collections.shuffle(grupoSeleccionado.subList(5, grupoSeleccionado.size()), aleatorio);
         } else {
-            Collections.shuffle(grupoSeleccionado, generadorAleatorio);
+            Collections.shuffle(grupoSeleccionado, aleatorio);
         }
         
-        int numDestruir = Math.min(
-            Math.max((int)(grupoSeleccionado.size() * tasaDestruccion), minDestruir),
+        int numADestruir = Math.min(
+            Math.max((int)(grupoSeleccionado.size() * ratioDestruccion), minDestruir),
             Math.min(maxDestruir, grupoSeleccionado.size())
         );
         
-        ArrayList<Map.Entry<Paquete, Ruta>> destruidos = new ArrayList<>();
-        for (int i = 0; i < numDestruir; i++) {
+        ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> destruidos = new ArrayList<>();
+        for (int i = 0; i < numADestruir; i++) {
             Paquete seleccionado = grupoSeleccionado.get(i);
-            Ruta ruta = solucionActual.get(seleccionado);
-            if (ruta == null) ruta = new Ruta(); // Protección contra nulos
+            ArrayList<Vuelo> ruta = solucionActual.get(seleccionado);
+            if (ruta == null) ruta = new ArrayList<>(); // Protección contra nulos
             
-            destruidos.add(new java.util.AbstractMap.SimpleEntry<>(seleccionado, ruta));
+            destruidos.add(new java.util.AbstractMap.SimpleEntry<>(seleccionado, new ArrayList<>(ruta)));
             solucionParcial.remove(seleccionado);
         }
         
-        System.out.println("Destrucción temporal por slack: " + numDestruir + " paquetes del grupo " + nombreGrupo);
+        System.out.println("Destrucción temporal por slack: " + numADestruir + " paquetes del grupo " + nombreGrupo);
         
-        return new DestructionResult(solucionParcial, destruidos);
+        return new ResultadoDestruccion(solucionParcial, destruidos);
     }
     
     /**
      * CORRECCIÓN COMPLETA: Destrucción de rutas congestionadas con scoring por
      * vuelo crítico + productos - urgencia
      */
-    public DestructionResult congestedRouteDestroy(
-            HashMap<Paquete, Ruta> solucionActual,
-            double tasaDestruccion,
+    public ResultadoDestruccion destruccionRutaCongestionada(
+            HashMap<Paquete, ArrayList<Vuelo>> solucionActual,
+            double ratioDestruccion,
             int minDestruir,
             int maxDestruir) {
         
-        HashMap<Paquete, Ruta> solucionParcial = new HashMap<>(solucionActual);
+        HashMap<Paquete, ArrayList<Vuelo>> parcial = new HashMap<>(solucionActual);
         if (solucionActual.isEmpty()) {
-            return new DestructionResult(solucionParcial, new ArrayList<>());
+            return new ResultadoDestruccion(parcial, new ArrayList<>());
         }
         
         // CORRECCIÓN: Parámetros de scoring mejorados
         final double UMBRAL_UTILIZACION = 0.85;   // umbral de "crítico"
-        final double PESO_UTILIZACION = 1.0;            // peso de congestión
-        final double PESO_PRODUCTOS = 0.25;          // peso por productos
-        final double PENALIZACION_SLACK = 0.5;   // penaliza baja holgura
+        final double PESO_UTILIZACION = 1.0;      // peso de congestión
+        final double PESO_PRODUCTOS = 0.25;       // peso por productos
+        final double PENALIZACION_SLACK = 0.5;    // penaliza baja holgura
         
         // CORRECCIÓN: Score por paquete basado en congestión crítica + productos - urgencia
         class Candidato { 
             Paquete paquete; 
-            double puntaje; 
+            double puntuacion; 
         }
         
         ArrayList<Candidato> candidatos = new ArrayList<>();
         
-        for (Map.Entry<Paquete, Ruta> entrada : solucionActual.entrySet()) {
-            Paquete p = entrada.getKey();
-            Ruta r = entrada.getValue();
-            if (r == null || r.getVuelos().isEmpty()) continue;
+        for (Map.Entry<Paquete, ArrayList<Vuelo>> e : solucionActual.entrySet()) {
+            Paquete p = e.getKey();
+            ArrayList<Vuelo> r = e.getValue();
+            if (r == null || r.isEmpty()) continue;
             
             int productos = productosDe(p);
             
             // CORRECCIÓN: Congestión acumulada en vuelos por encima del umbral
             double congestion = 0.0;
-            for (int i = 0; i < r.getVuelos().size(); i++) {
-                // Simular utilización del vuelo (en un sistema real, esto vendría de los datos)
-                double utilizacion = 0.7 + generadorAleatorio.nextDouble() * 0.3; // Simulación
+            for (Vuelo f : r) {
+                double utilizacion = (f.getCapacidadMaxima() > 0) ? 
+                    ((double) f.getCapacidadUsada() / f.getCapacidadMaxima()) : 0.0;
                 if (utilizacion > UMBRAL_UTILIZACION) {
                     congestion += (utilizacion - UMBRAL_UTILIZACION);
                 }
@@ -437,80 +435,65 @@ public class ALNSDestruction {
             double slack = slackHoras(p, r);
             double penalizacionSlack = (slack <= 8) ? (8 - Math.max(slack, 0)) : 0.0;
             
-            double puntaje = PESO_UTILIZACION * congestion + PESO_PRODUCTOS * productos - PENALIZACION_SLACK * penalizacionSlack;
-            if (puntaje > 0) {
+            double puntuacion = PESO_UTILIZACION * congestion + PESO_PRODUCTOS * productos - PENALIZACION_SLACK * penalizacionSlack;
+            if (puntuacion > 0) {
                 Candidato c = new Candidato();
                 c.paquete = p;
-                c.puntaje = puntaje;
+                c.puntuacion = puntuacion;
                 candidatos.add(c);
             }
         }
         
         if (candidatos.size() < minDestruir) {
-            return randomDestroy(solucionActual, tasaDestruccion, minDestruir, maxDestruir);
+            return destruccionAleatoria(solucionActual, ratioDestruccion, minDestruir, maxDestruir);
         }
         
-        // CORRECCIÓN: Ordenar por score desc (más alivio esperado primero)
-        candidatos.sort((a, b) -> Double.compare(b.puntaje, a.puntaje));
+        // CORRECCIÓN: Ordenar por puntuacion desc (más alivio esperado primero)
+        candidatos.sort((a, b) -> Double.compare(b.puntuacion, a.puntuacion));
         
-        int numDestruir = Math.min(
-            Math.max((int)(candidatos.size() * tasaDestruccion), minDestruir),
+        int numADestruir = Math.min(
+            Math.max((int)(candidatos.size() * ratioDestruccion), minDestruir),
             Math.min(maxDestruir, candidatos.size())
         );
         
-        ArrayList<Map.Entry<Paquete, Ruta>> destruidos = new ArrayList<>();
-        for (int i = 0; i < numDestruir; i++) {
+        ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> destruidos = new ArrayList<>();
+        for (int i = 0; i < numADestruir; i++) {
             Paquete seleccionado = candidatos.get(i).paquete;
             // REFINAMIENTO: Consistencia - usar solucionActual como fuente
-            Ruta ruta = solucionActual.get(seleccionado);
-            if (ruta == null) ruta = new Ruta(); // Protección contra nulos
+            ArrayList<Vuelo> ruta = solucionActual.get(seleccionado);
+            if (ruta == null) ruta = new ArrayList<>(); // Protección contra nulos
             
-            destruidos.add(new java.util.AbstractMap.SimpleEntry<>(seleccionado, ruta));
-            solucionParcial.remove(seleccionado);
+            destruidos.add(new java.util.AbstractMap.SimpleEntry<>(seleccionado, new ArrayList<>(ruta)));
+            parcial.remove(seleccionado);
         }
         
-        System.out.println("Destrucción por congestión (mejorada): " + numDestruir + " paquetes");
-        return new DestructionResult(solucionParcial, destruidos);
-    }
-    
-    /**
-     * Obtiene el continente de un aeropuerto por su código IATA
-     */
-    private String obtenerContinenteDeAeropuerto(String codigoIATA) {
-        // Mapeo simplificado de códigos IATA a continentes
-        if (codigoIATA.startsWith("SP") || codigoIATA.startsWith("SC")) {
-            return "America del Sur";
-        } else if (codigoIATA.startsWith("EB") || codigoIATA.startsWith("LF")) {
-            return "Europa";
-        } else if (codigoIATA.startsWith("UB") || codigoIATA.startsWith("UZ")) {
-            return "Asia";
-        }
-        return "Desconocido";
+        System.out.println("Destrucción por congestión (mejorada): " + numADestruir + " paquetes");
+        return new ResultadoDestruccion(parcial, destruidos);
     }
     
     /**
      * Clase para encapsular el resultado de una operación de destrucción
      */
-    public static class DestructionResult {
-        private HashMap<Paquete, Ruta> solucionParcial;
-        private ArrayList<Map.Entry<Paquete, Ruta>> paquetesDestruidos;
+    public static class ResultadoDestruccion {
+        private HashMap<Paquete, ArrayList<Vuelo>> solucionParcial;
+        private ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos;
         
-        public DestructionResult(
-                HashMap<Paquete, Ruta> solucionParcial,
-                ArrayList<Map.Entry<Paquete, Ruta>> paquetesDestruidos) {
+        public ResultadoDestruccion(
+                HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
+                ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos) {
             this.solucionParcial = solucionParcial;
             this.paquetesDestruidos = paquetesDestruidos;
         }
         
-        public HashMap<Paquete, Ruta> getPartialSolution() {
+        public HashMap<Paquete, ArrayList<Vuelo>> getSolucionParcial() {
             return solucionParcial;
         }
         
-        public ArrayList<Map.Entry<Paquete, Ruta>> getDestroyedPackages() {
+        public ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> getPaquetesDestruidos() {
             return paquetesDestruidos;
         }
         
-        public int getNumDestroyedPackages() {
+        public int getNumPaquetesDestruidos() {
             return paquetesDestruidos.size();
         }
     }

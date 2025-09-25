@@ -1,6 +1,6 @@
 package com.grupo5e.morapack.core.model;
 
-import com.grupo5e.morapack.core.enums.EstadoPaquete;
+import com.grupo5e.morapack.core.enums.Estado;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,5 +13,5 @@ import lombok.Setter;
 public class Producto {
     private int id;
     private StringBuilder vueloAsignado;
-    private EstadoPaquete estado;
+    private Estado estado;
 }

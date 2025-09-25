@@ -2,7 +2,7 @@ package com.grupo5e.morapack.utils;
 
 import com.grupo5e.morapack.core.model.Vuelo;
 import com.grupo5e.morapack.core.model.Aeropuerto;
-import com.grupo5e.morapack.core.constants.Constants;
+import com.grupo5e.morapack.core.constants.Constantes;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -16,40 +16,35 @@ import java.util.Map;
 public class LectorVuelos {
 
     private ArrayList<Vuelo> vuelos;
-    private final String filePath;
+    private final String rutaArchivo;
     private ArrayList<Aeropuerto> aeropuertos;
 
-    public LectorVuelos() {
-        this.filePath = Constants.FLIGHTS_FILE_PATH;
-        this.vuelos = new ArrayList<>();
-    }
-
-    public LectorVuelos(String filePath, ArrayList<Aeropuerto> aeropuertos) {
-        this.filePath = filePath;
+    public LectorVuelos(String rutaArchivo, ArrayList<Aeropuerto> aeropuertos) {
+        this.rutaArchivo = rutaArchivo;
         this.vuelos = new ArrayList<>();
         this.aeropuertos = aeropuertos;
     }
 
     public ArrayList<Vuelo> leerVuelos() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            String line;
+        try (BufferedReader reader = new BufferedReader(new FileReader(rutaArchivo))) {
+            String linea;
             int idVuelo = 1;
             Map<String, Aeropuerto> mapaAeropuertos = crearMapaAeropuertos();
             
-            while ((line = reader.readLine()) != null) {
+            while ((linea = reader.readLine()) != null) {
                 // Saltar líneas vacías
-                if (line.trim().isEmpty()) {
+                if (linea.trim().isEmpty()) {
                     continue;
                 }
                 
                 // Parsear datos del vuelo
                 // Formato: ORIGEN-DESTINO-SALIDA-LLEGADA-CAPACIDAD
-                String[] partes = line.split("-");
+                String[] partes = linea.split("-");
                 if (partes.length == 5) {
                     String codigoOrigen = partes[0];
                     String codigoDestino = partes[1];
-                    String horaSalidaStr = partes[2];
-                    String horaLlegadaStr = partes[3];
+                    String horaSalida = partes[2];
+                    String horaLlegada = partes[3];
                     int capacidadMaxima = Integer.parseInt(partes[4]);
                     
                     // Buscar aeropuertos por código IATA
@@ -58,7 +53,7 @@ public class LectorVuelos {
                     
                     if (aeropuertoOrigen != null && aeropuertoDestino != null) {
                         // Calcular tiempo de transporte en horas
-                        double tiempoTransporte = calcularTiempoTransporte(horaSalidaStr, horaLlegadaStr);
+                        double tiempoTransporte = calcularTiempoTransporte(horaSalida, horaLlegada);
                         
                         // Calcular costo (esto es un placeholder - podrías implementar un modelo de costo más sofisticado)
                         double costo = calcularCostoVuelo(aeropuertoOrigen, aeropuertoDestino, capacidadMaxima);
@@ -95,18 +90,18 @@ public class LectorVuelos {
         return mapa;
     }
     
-    private double calcularTiempoTransporte(String horaSalidaStr, String horaLlegadaStr) {
-        LocalTime horaSalida = parsearHora(horaSalidaStr);
-        LocalTime horaLlegada = parsearHora(horaLlegadaStr);
+    private double calcularTiempoTransporte(String horaSalida, String horaLlegada) {
+        LocalTime salida = parsearHora(horaSalida);
+        LocalTime llegada = parsearHora(horaLlegada);
         
         // Calcular duración entre salida y llegada
         long minutos;
-        if (horaLlegada.isBefore(horaSalida)) {
+        if (llegada.isBefore(salida)) {
             // Vuelo cruza medianoche
-            minutos = Duration.between(horaSalida, LocalTime.of(23, 59, 59)).toMinutes() + 
-                     Duration.between(LocalTime.of(0, 0), horaLlegada).toMinutes() + 1;
+            minutos = Duration.between(salida, LocalTime.of(23, 59, 59)).toMinutes() + 
+                     Duration.between(LocalTime.of(0, 0), llegada).toMinutes() + 1;
         } else {
-            minutos = Duration.between(horaSalida, horaLlegada).toMinutes();
+            minutos = Duration.between(salida, llegada).toMinutes();
         }
         
         // Convertir minutos a horas
@@ -125,9 +120,9 @@ public class LectorVuelos {
         
         double costoBase;
         if (vueloMismoContinente) {
-            costoBase = Constants.SAME_CONTINENT_TRANSPORT_TIME * 100;
+            costoBase = Constantes.TIEMPO_TRANSPORTE_MISMO_CONTINENTE * 100;
         } else {
-            costoBase = Constants.DIFFERENT_CONTINENT_TRANSPORT_TIME * 150;
+            costoBase = Constantes.TIEMPO_TRANSPORTE_DIFERENTE_CONTINENTE * 150;
         }
         
         // Ajustar costo basado en capacidad

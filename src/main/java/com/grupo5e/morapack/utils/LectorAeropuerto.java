@@ -5,7 +5,6 @@ import com.grupo5e.morapack.core.model.Ciudad;
 import com.grupo5e.morapack.core.model.Almacen;
 import com.grupo5e.morapack.core.enums.Continente;
 import com.grupo5e.morapack.core.enums.EstadoAeropuerto;
-import com.grupo5e.morapack.core.constants.Constants;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -17,21 +16,16 @@ import java.util.Map;
 public class LectorAeropuerto {
 
     private ArrayList<Aeropuerto> aeropuertos;
-    private final String filePath;
+    private final String rutaArchivo;
 
-    public LectorAeropuerto() {
-        this.filePath = Constants.AIRPORT_INFO_FILE_PATH;
-        this.aeropuertos = new ArrayList<>();
-    }
-
-    public LectorAeropuerto(String filePath) {
-        this.filePath = filePath;
+    public LectorAeropuerto(String rutaArchivo) {
+        this.rutaArchivo = rutaArchivo;
         this.aeropuertos = new ArrayList<>();
     }
 
     public ArrayList<Aeropuerto> leerAeropuertos() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            String line;
+        try (BufferedReader reader = new BufferedReader(new FileReader(rutaArchivo))) {
+            String linea;
             Continente continenteActual = null;
             Map<String, Ciudad> mapaCiudades = new HashMap<>();
 
@@ -39,22 +33,22 @@ public class LectorAeropuerto {
             reader.readLine();
             reader.readLine();
 
-            while ((line = reader.readLine()) != null) {
+            while ((linea = reader.readLine()) != null) {
                 
                 // Saltar líneas vacías
-                if (line.trim().isEmpty()) {
+                if (linea.trim().isEmpty()) {
                     continue;
                 }
                 
                 // Verificar si es una línea de header de continente
-                if (line.contains("America") || line.contains("Europa") || line.contains("Asia")) {
-                    if (line.contains("America")) {
+                if (linea.contains("America") || linea.contains("Europa") || linea.contains("Asia")) {
+                    if (linea.contains("America")) {
                         continenteActual = Continente.AMERICA;
                         System.out.println("Continente: " + continenteActual);
-                    } else if (line.contains("Europa")) {
+                    } else if (linea.contains("Europa")) {
                         continenteActual = Continente.EUROPA;
                         System.out.println("Continente: " + continenteActual);
-                    } else if (line.contains("Asia")) {
+                    } else if (linea.contains("Asia")) {
                         continenteActual = Continente.ASIA;
                         System.out.println("Continente: " + continenteActual);
                     }
@@ -62,16 +56,14 @@ public class LectorAeropuerto {
                 }
                 
                 // Parsear datos del aeropuerto
-                String[] partes = line.trim().split("\\s+");
-                
+                String[] partes = linea.trim().split("\\s+");
                 if (partes.length >= 7) {
                     int id = Integer.parseInt(partes[0]);
                     String codigoIATA = partes[1];
                     
                     // Extraer nombre de la ciudad (puede contener múltiples palabras)
                     int finNombreCiudad = 3;
-                    while (!partes[finNombreCiudad].contains("GMT") && 
-                           !Character.isDigit(partes[finNombreCiudad].charAt(0))) {
+                    while (!partes[finNombreCiudad].contains("GMT") && !Character.isDigit(partes[finNombreCiudad].charAt(0))) {
                         finNombreCiudad++;
                     }
                     
@@ -118,12 +110,12 @@ public class LectorAeropuerto {
                     String longitudStr = "";
                     
                     // Buscar latitud y longitud en la línea
-                    int indiceLat = line.indexOf("Latitude:");
-                    int indiceLong = line.indexOf("Longitude:");
+                    int indiceLat = linea.indexOf("Latitude:");
+                    int indiceLong = linea.indexOf("Longitude:");
                     
                     if (indiceLat != -1 && indiceLong != -1) {
-                        latitudStr = line.substring(indiceLat + 10, indiceLong).trim();
-                        longitudStr = line.substring(indiceLong + 11).trim();
+                        latitudStr = linea.substring(indiceLat + 10, indiceLong).trim();
+                        longitudStr = linea.substring(indiceLong + 11).trim();
                         
                         // Limpiar caracteres especiales de latitud y longitud
                         latitudStr = latitudStr.replaceAll("[°'\"NSEW]", "").trim();

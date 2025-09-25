@@ -1,0 +1,41 @@
+package com.grupo5e.morapack.core.constants;
+
+public class Constantes {
+    // Rutas de archivos
+    public static final String RUTA_ARCHIVO_INFO_AEROPUERTOS = "data/aeropuertosinfo.txt";
+    public static final String RUTA_ARCHIVO_VUELOS = "data/vuelos.txt";
+    public static final String RUTA_ARCHIVO_PRODUCTOS = "data/productos.txt";
+    
+    // Constantes del algoritmo
+    public static final int LIMITE_INFERIOR_ESPACIO_SOLUCION = 100;
+    public static final int LIMITE_SUPERIOR_ESPACIO_SOLUCION = 200;
+    
+    public static final double RATIO_DESTRUCCION = 0.8;
+    public static final int DESTRUCCION_MIN_PAQUETES = 5000;
+    public static final int DESTRUCCION_MAX_PAQUETES = 5000;
+    
+    // Constantes de tiempo de entrega
+    public static final double TIEMPO_MAX_ENTREGA_MISMO_CONTINENTE = 2.0;
+    public static final double TIEMPO_MAX_ENTREGA_DIFERENTE_CONTINENTE = 3.0;
+    
+    public static final double TIEMPO_TRANSPORTE_MISMO_CONTINENTE = 0.5;
+    public static final double TIEMPO_TRANSPORTE_DIFERENTE_CONTINENTE = 1.0;
+    
+    public static final int CAPACIDAD_MIN_MISMO_CONTINENTE = 200;
+    public static final int CAPACIDAD_MAX_MISMO_CONTINENTE = 300;
+    public static final int CAPACIDAD_MIN_DIFERENTE_CONTINENTE = 250;
+    public static final int CAPACIDAD_MAX_DIFERENTE_CONTINENTE = 400;
+    
+    public static final int CAPACIDAD_MIN_ALMACEN = 600;
+    public static final int CAPACIDAD_MAX_ALMACEN = 1000;
+    
+    public static final int HORAS_MAX_RECOGIDA_CLIENTE = 2;
+    
+    // NUEVO: Control de tipo de solución inicial
+    public static final boolean USAR_SOLUCION_INICIAL_CODICIOSA = false; // true=codiciosa, false=aleatoria
+    public static final double PROBABILIDAD_ASIGNACION_ALEATORIA = 0.3; // Para solución aleatoria: 30% de asignación
+
+    public static final String ALMACEN_LIMA = "Lima, Peru";
+    public static final String ALMACEN_BRUSELAS = "Brussels, Belgium";
+    public static final String ALMACEN_BAKU = "Baku, Azerbaijan";
+}

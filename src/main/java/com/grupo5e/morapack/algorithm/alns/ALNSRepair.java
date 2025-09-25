@@ -1,7 +1,14 @@
 package com.grupo5e.morapack.algorithm.alns;
 
-import com.grupo5e.morapack.core.model.*;
-import java.util.*;
+import com.grupo5e.morapack.core.model.Vuelo;
+import com.grupo5e.morapack.core.model.Paquete;
+import com.grupo5e.morapack.core.model.Ciudad;
+import com.grupo5e.morapack.core.model.Aeropuerto;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+import java.util.Collections;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
@@ -14,124 +21,124 @@ import java.time.temporal.ChronoUnit;
  */
 public class ALNSRepair {
     
-    private List<Aeropuerto> aeropuertos;
-    private List<Vuelo> vuelos;
-    private Map<String, Integer> ocupacionAlmacenes;
-    private Random generadorAleatorio;
+    private ArrayList<Aeropuerto> aeropuertos;
+    private ArrayList<Vuelo> vuelos;
+    private HashMap<Aeropuerto, Integer> ocupacionAlmacenes;
+    private Random aleatorio;
     
-    public ALNSRepair(List<Aeropuerto> aeropuertos, List<Vuelo> vuelos, 
-                      Map<String, Integer> ocupacionAlmacenes) {
+    public ALNSRepair(ArrayList<Aeropuerto> aeropuertos, ArrayList<Vuelo> vuelos, 
+                      HashMap<Aeropuerto, Integer> ocupacionAlmacenes) {
         this.aeropuertos = aeropuertos;
         this.vuelos = vuelos;
         this.ocupacionAlmacenes = ocupacionAlmacenes;
-        this.generadorAleatorio = new Random(System.currentTimeMillis());
+        this.aleatorio = new Random(System.currentTimeMillis());
     }
     
     /**
      * Constructor con semilla específica
      */
-    public ALNSRepair(List<Aeropuerto> aeropuertos, List<Vuelo> vuelos, 
-                      Map<String, Integer> ocupacionAlmacenes, long semilla) {
+    public ALNSRepair(ArrayList<Aeropuerto> aeropuertos, ArrayList<Vuelo> vuelos, 
+                      HashMap<Aeropuerto, Integer> ocupacionAlmacenes, long semilla) {
         this.aeropuertos = aeropuertos;
         this.vuelos = vuelos;
         this.ocupacionAlmacenes = ocupacionAlmacenes;
-        this.generadorAleatorio = new Random(semilla);
+        this.aleatorio = new Random(semilla);
     }
     
     /**
      * Reparación Greedy: Inserta paquetes usando el enfoque greedy optimizado.
      * Prioriza paquetes por deadline y busca la mejor ruta disponible.
      */
-    public RepairResult greedyRepair(
-            Map<Paquete, Ruta> solucionParcial,
-            List<Map.Entry<Paquete, Ruta>> paquetesDestruidos) {
+    public ResultadoReparacion reparacionCodiciosa(
+            HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
+            ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos) {
         
-        Map<Paquete, Ruta> solucionReparada = new HashMap<>(solucionParcial);
-        List<Paquete> paquetesNoAsignados = new ArrayList<>();
+        HashMap<Paquete, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
+        ArrayList<Paquete> paquetesNoAsignados = new ArrayList<>();
         
         // Ordenar paquetes destruidos por deadline (más urgente primero)
-        List<Paquete> paquetesParaReparar = new ArrayList<>();
-        for (Map.Entry<Paquete, Ruta> entrada : paquetesDestruidos) {
+        ArrayList<Paquete> paquetesParaReparar = new ArrayList<>();
+        for (Map.Entry<Paquete, ArrayList<Vuelo>> entrada : paquetesDestruidos) {
             paquetesParaReparar.add(entrada.getKey());
         }
         
-        // Ordenamiento null-safe
+        // PATCH: Null-safe sorting
         paquetesParaReparar.sort((p1, p2) -> {
             if (p1.getFechaLimiteEntrega() == null && p2.getFechaLimiteEntrega() == null) return 0;
-            if (p1.getFechaLimiteEntrega() == null) return 1; // nulls al final
-            if (p2.getFechaLimiteEntrega() == null) return -1; // nulls al final
+            if (p1.getFechaLimiteEntrega() == null) return 1; // nulls last
+            if (p2.getFechaLimiteEntrega() == null) return -1; // nulls last
             return p1.getFechaLimiteEntrega().compareTo(p2.getFechaLimiteEntrega());
         });
         
-        int paquetesReinsertados = 0;
+        int conteoReinsertados = 0;
         
         // Intentar reinsertar cada paquete
         for (Paquete paquete : paquetesParaReparar) {
-            Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCodigo(paquete.getAeropuertoDestino());
+            Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(paquete.getCiudadDestino());
             
-            // Obtener cantidad de productos para este paquete
-            int cantidadProductos = 1; // En nuestro modelo, cada paquete = 1 producto
+            // Obtener conteo de productos para este paquete
+            int conteoProductos = paquete.getProductos() != null ? paquete.getProductos().size() : 1;
             
             // Verificar capacidad del almacén
-            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, cantidadProductos)) {
+            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
                 paquetesNoAsignados.add(paquete);
                 continue;
             }
             
             // Buscar la mejor ruta
-            Ruta mejorRuta = encontrarMejorRuta(paquete);
-            if (mejorRuta != null && esRutaValida(paquete, mejorRuta, cantidadProductos)) {
+            ArrayList<Vuelo> mejorRuta = encontrarMejorRuta(paquete);
+            if (mejorRuta != null && esRutaValida(paquete, mejorRuta, conteoProductos)) {
                 solucionReparada.put(paquete, mejorRuta);
-                actualizarCapacidadesVuelos(mejorRuta, cantidadProductos);
-                incrementarOcupacionAlmacen(aeropuertoDestino, cantidadProductos);
-                paquetesReinsertados++;
+                actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+                incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+                conteoReinsertados++;
             } else {
                 paquetesNoAsignados.add(paquete);
             }
         }
         
-        System.out.println("Reparación Greedy: " + paquetesReinsertados + "/" + paquetesParaReparar.size() + 
+        System.out.println("Reparación Greedy: " + conteoReinsertados + "/" + paquetesParaReparar.size() + 
                           " paquetes reinsertados");
         
-        return new RepairResult(solucionReparada, paquetesNoAsignados);
+        return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
     }
     
     /**
      * Reparación por Regret: Calcula el "arrepentimiento" de no insertar cada paquete
      * y prioriza aquellos con mayor diferencia entre mejor y segunda mejor opción.
      */
-    public RepairResult regretRepair(
-            Map<Paquete, Ruta> solucionParcial,
-            List<Map.Entry<Paquete, Ruta>> paquetesDestruidos,
-            int nivelRegret) {
+    public ResultadoReparacion reparacionPorArrepentimiento(
+            HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
+            ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos,
+            int nivelArrepentimiento) {
         
-        Map<Paquete, Ruta> solucionReparada = new HashMap<>(solucionParcial);
-        List<Paquete> paquetesNoAsignados = new ArrayList<>();
+        HashMap<Paquete, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
+        ArrayList<Paquete> paquetesNoAsignados = new ArrayList<>();
         
-        List<Paquete> paquetesRestantes = new ArrayList<>();
-        for (Map.Entry<Paquete, Ruta> entrada : paquetesDestruidos) {
+        ArrayList<Paquete> paquetesRestantes = new ArrayList<>();
+        for (Map.Entry<Paquete, ArrayList<Vuelo>> entrada : paquetesDestruidos) {
             paquetesRestantes.add(entrada.getKey());
         }
         
-        int paquetesReinsertados = 0;
+        int conteoReinsertados = 0;
         
         // Mientras haya paquetes por insertar
         while (!paquetesRestantes.isEmpty()) {
             Paquete mejorPaquete = null;
-            Ruta mejorRuta = null;
-            double maxRegret = Double.NEGATIVE_INFINITY;
+            ArrayList<Vuelo> mejorRuta = null;
+            double maxArrepentimiento = Double.NEGATIVE_INFINITY;
             
-            // Calcular regret para cada paquete restante
+            // Calcular arrepentimiento para cada paquete restante
             for (Paquete paquete : paquetesRestantes) {
-                Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCodigo(paquete.getAeropuertoDestino());
-                int cantidadProductos = 1;
+                Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(paquete.getCiudadDestino());
+                int conteoProductos = paquete.getProductos() != null ? paquete.getProductos().size() : 1;
                 
-                if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, cantidadProductos)) {
+                if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
                     continue;
                 }
                 
                 // Encontrar las mejores rutas para este paquete
-                List<OpcionRuta> opcionesRuta = encontrarTodasOpcionesRuta(paquete);
+                ArrayList<OpcionRuta> opcionesRuta = encontrarTodasLasOpcionesRuta(paquete);
                 
                 if (opcionesRuta.isEmpty()) {
                     continue;
@@ -140,39 +147,39 @@ public class ALNSRepair {
                 // Ordenar por margen de tiempo (mejor primero)
                 opcionesRuta.sort((r1, r2) -> Double.compare(r2.margenTiempo, r1.margenTiempo));
                 
-                // Calcular regret
-                double regret = 0;
+                // Calcular arrepentimiento
+                double arrepentimiento = 0;
                 if (opcionesRuta.size() >= 2) {
-                    // Regret = diferencia entre mejor y segunda mejor opción
-                    regret = opcionesRuta.get(0).margenTiempo - opcionesRuta.get(1).margenTiempo;
+                    // Arrepentimiento = diferencia entre mejor y segunda mejor opción
+                    arrepentimiento = opcionesRuta.get(0).margenTiempo - opcionesRuta.get(1).margenTiempo;
                 } else if (opcionesRuta.size() == 1) {
-                    // Solo una opción: regret basado en urgencia
+                    // Solo una opción: arrepentimiento basado en urgencia
                     LocalDateTime ahora = LocalDateTime.now();
                     long horasHastaDeadline = ChronoUnit.HOURS.between(ahora, paquete.getFechaLimiteEntrega());
-                    regret = Math.max(0, 168 - horasHastaDeadline); // Más regret para deadlines más cercanos
+                    arrepentimiento = Math.max(0, 168 - horasHastaDeadline); // Más arrepentimiento para deadlines más cercanos
                 }
                 
-                // Añadir factor de urgencia al regret
+                // Añadir factor de urgencia al arrepentimiento
                 LocalDateTime ahora = LocalDateTime.now();
                 long horasHastaDeadline = ChronoUnit.HOURS.between(ahora, paquete.getFechaLimiteEntrega());
                 double factorUrgencia = Math.max(1, 72.0 / Math.max(1, horasHastaDeadline));
-                regret *= factorUrgencia;
+                arrepentimiento *= factorUrgencia;
                 
-                if (regret > maxRegret) {
-                    maxRegret = regret;
+                if (arrepentimiento > maxArrepentimiento) {
+                    maxArrepentimiento = arrepentimiento;
                     mejorPaquete = paquete;
                     mejorRuta = opcionesRuta.get(0).ruta;
                 }
             }
             
-            // Insertar el paquete con mayor regret
+            // Insertar el paquete con mayor arrepentimiento
             if (mejorPaquete != null && mejorRuta != null) {
                 solucionReparada.put(mejorPaquete, mejorRuta);
-                int cantidadProductos = 1;
-                actualizarCapacidadesVuelos(mejorRuta, cantidadProductos);
-                incrementarOcupacionAlmacen(obtenerAeropuertoPorCodigo(mejorPaquete.getAeropuertoDestino()), cantidadProductos);
+                int conteoProductos = mejorPaquete.getProductos() != null ? mejorPaquete.getProductos().size() : 1;
+                actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+                incrementarOcupacionAlmacen(obtenerAeropuertoPorCiudad(mejorPaquete.getCiudadDestino()), conteoProductos);
                 paquetesRestantes.remove(mejorPaquete);
-                paquetesReinsertados++;
+                conteoReinsertados++;
             } else {
                 // No se pudo insertar ningún paquete, agregar todos los restantes como no asignados
                 paquetesNoAsignados.addAll(paquetesRestantes);
@@ -180,149 +187,146 @@ public class ALNSRepair {
             }
         }
         
-        System.out.println("Reparación por Regret: " + paquetesReinsertados + "/" + paquetesDestruidos.size() + 
+        System.out.println("Reparación por Arrepentimiento: " + conteoReinsertados + "/" + paquetesDestruidos.size() + 
                           " paquetes reinsertados");
         
-        return new RepairResult(solucionReparada, paquetesNoAsignados);
+        return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
     }
     
     /**
      * Reparación por tiempo: Prioriza paquetes con deadlines más cercanos.
      */
-    public RepairResult timeBasedRepair(
-            Map<Paquete, Ruta> solucionParcial,
-            List<Map.Entry<Paquete, Ruta>> paquetesDestruidos) {
+    public ResultadoReparacion reparacionBasadaEnTiempo(
+            HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
+            ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos) {
         
-        Map<Paquete, Ruta> solucionReparada = new HashMap<>(solucionParcial);
-        List<Paquete> paquetesNoAsignados = new ArrayList<>();
+        HashMap<Paquete, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
+        ArrayList<Paquete> paquetesNoAsignados = new ArrayList<>();
         
         // Extraer paquetes y ordenar por urgencia (deadline más cercano primero)
-        List<Paquete> paquetesParaReparar = new ArrayList<>();
-        for (Map.Entry<Paquete, Ruta> entrada : paquetesDestruidos) {
+        ArrayList<Paquete> paquetesParaReparar = new ArrayList<>();
+        for (Map.Entry<Paquete, ArrayList<Vuelo>> entrada : paquetesDestruidos) {
             paquetesParaReparar.add(entrada.getKey());
         }
         
         paquetesParaReparar.sort((p1, p2) -> {
             LocalDateTime ahora = LocalDateTime.now();
-            long p1Horas = ChronoUnit.HOURS.between(ahora, p1.getFechaLimiteEntrega());
-            long p2Horas = ChronoUnit.HOURS.between(ahora, p2.getFechaLimiteEntrega());
-            return Long.compare(p1Horas, p2Horas);
+            long horasP1 = ChronoUnit.HOURS.between(ahora, p1.getFechaLimiteEntrega());
+            long horasP2 = ChronoUnit.HOURS.between(ahora, p2.getFechaLimiteEntrega());
+            return Long.compare(horasP1, horasP2);
         });
         
-        int paquetesReinsertados = 0;
+        int conteoReinsertados = 0;
         
         // Insertar paquetes en orden de urgencia
         for (Paquete paquete : paquetesParaReparar) {
-            Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCodigo(paquete.getAeropuertoDestino());
-            int cantidadProductos = 1;
+            Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(paquete.getCiudadDestino());
+            int conteoProductos = paquete.getProductos() != null ? paquete.getProductos().size() : 1;
             
-            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, cantidadProductos)) {
+            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
                 paquetesNoAsignados.add(paquete);
                 continue;
             }
             
             // Buscar ruta con mayor margen de tiempo
-            Ruta mejorRuta = encontrarRutaConMaximoMargen(paquete);
-            if (mejorRuta != null && esRutaValida(paquete, mejorRuta, cantidadProductos)) {
+            ArrayList<Vuelo> mejorRuta = encontrarRutaConMaximoMargen(paquete);
+            if (mejorRuta != null && esRutaValida(paquete, mejorRuta, conteoProductos)) {
                 solucionReparada.put(paquete, mejorRuta);
-                actualizarCapacidadesVuelos(mejorRuta, cantidadProductos);
-                incrementarOcupacionAlmacen(aeropuertoDestino, cantidadProductos);
-                paquetesReinsertados++;
+                actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+                incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+                conteoReinsertados++;
             } else {
                 paquetesNoAsignados.add(paquete);
             }
         }
         
-        System.out.println("Reparación por tiempo: " + paquetesReinsertados + "/" + paquetesParaReparar.size() + 
+        System.out.println("Reparación por tiempo: " + conteoReinsertados + "/" + paquetesParaReparar.size() + 
                           " paquetes reinsertados");
         
-        return new RepairResult(solucionReparada, paquetesNoAsignados);
+        return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
     }
     
     /**
      * Reparación por capacidad: Prioriza rutas con mayor capacidad disponible.
      */
-    public RepairResult capacityBasedRepair(
-            Map<Paquete, Ruta> solucionParcial,
-            List<Map.Entry<Paquete, Ruta>> paquetesDestruidos) {
+    public ResultadoReparacion reparacionBasadaEnCapacidad(
+            HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
+            ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos) {
         
-        Map<Paquete, Ruta> solucionReparada = new HashMap<>(solucionParcial);
-        List<Paquete> paquetesNoAsignados = new ArrayList<>();
+        HashMap<Paquete, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
+        ArrayList<Paquete> paquetesNoAsignados = new ArrayList<>();
         
-        List<Paquete> paquetesParaReparar = new ArrayList<>();
-        for (Map.Entry<Paquete, Ruta> entrada : paquetesDestruidos) {
+        ArrayList<Paquete> paquetesParaReparar = new ArrayList<>();
+        for (Map.Entry<Paquete, ArrayList<Vuelo>> entrada : paquetesDestruidos) {
             paquetesParaReparar.add(entrada.getKey());
         }
         
         // Ordenar por deadline como criterio secundario
-        // Ordenamiento null-safe
+        // PATCH: Null-safe sorting
         paquetesParaReparar.sort((p1, p2) -> {
             if (p1.getFechaLimiteEntrega() == null && p2.getFechaLimiteEntrega() == null) return 0;
-            if (p1.getFechaLimiteEntrega() == null) return 1; // nulls al final
-            if (p2.getFechaLimiteEntrega() == null) return -1; // nulls al final
+            if (p1.getFechaLimiteEntrega() == null) return 1; // nulls last
+            if (p2.getFechaLimiteEntrega() == null) return -1; // nulls last
             return p1.getFechaLimiteEntrega().compareTo(p2.getFechaLimiteEntrega());
         });
         
-        int paquetesReinsertados = 0;
+        int conteoReinsertados = 0;
         
         for (Paquete paquete : paquetesParaReparar) {
-            Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCodigo(paquete.getAeropuertoDestino());
-            int cantidadProductos = 1;
+            Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(paquete.getCiudadDestino());
+            int conteoProductos = paquete.getProductos() != null ? paquete.getProductos().size() : 1;
             
-            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, cantidadProductos)) {
+            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
                 paquetesNoAsignados.add(paquete);
                 continue;
             }
             
             // Buscar ruta con mayor capacidad disponible
-            Ruta mejorRuta = encontrarRutaConMaximaCapacidad(paquete);
-            if (mejorRuta != null && esRutaValida(paquete, mejorRuta, cantidadProductos)) {
+            ArrayList<Vuelo> mejorRuta = encontrarRutaConMaximaCapacidad(paquete);
+            if (mejorRuta != null && esRutaValida(paquete, mejorRuta, conteoProductos)) {
                 solucionReparada.put(paquete, mejorRuta);
-                actualizarCapacidadesVuelos(mejorRuta, cantidadProductos);
-                incrementarOcupacionAlmacen(aeropuertoDestino, cantidadProductos);
-                paquetesReinsertados++;
+                actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+                incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+                conteoReinsertados++;
             } else {
                 paquetesNoAsignados.add(paquete);
             }
         }
         
-        System.out.println("Reparación por capacidad: " + paquetesReinsertados + "/" + paquetesParaReparar.size() + 
+        System.out.println("Reparación por capacidad: " + conteoReinsertados + "/" + paquetesParaReparar.size() + 
                           " paquetes reinsertados");
         
-        return new RepairResult(solucionReparada, paquetesNoAsignados);
+        return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
     }
     
     // ================= MÉTODOS AUXILIARES =================
     
-    private List<OpcionRuta> encontrarTodasOpcionesRuta(Paquete paquete) {
-        List<OpcionRuta> opciones = new ArrayList<>();
-        String origen = paquete.getAeropuertoActual();
-        String destino = paquete.getAeropuertoDestino();
+    private ArrayList<OpcionRuta> encontrarTodasLasOpcionesRuta(Paquete paquete) {
+        ArrayList<OpcionRuta> opciones = new ArrayList<>();
+        Ciudad origen = paquete.getUbicacionActual();
+        Ciudad destino = paquete.getCiudadDestino();
         
         if (origen.equals(destino)) {
-            Ruta rutaDirecta = new Ruta();
-            rutaDirecta.setId(1); // ID temporal
-            rutaDirecta.setVuelos(new ArrayList<>());
-            opciones.add(new OpcionRuta(rutaDirecta, Double.MAX_VALUE));
+            opciones.add(new OpcionRuta(new ArrayList<>(), Double.MAX_VALUE));
             return opciones;
         }
         
         // Buscar ruta directa
-        Ruta rutaDirecta = buscarRutaDirecta(origen, destino);
+        ArrayList<Vuelo> rutaDirecta = buscarRutaDirecta(origen, destino);
         if (rutaDirecta != null && esRutaValida(paquete, rutaDirecta)) {
             double margen = calcularMargenTiempoRuta(paquete, rutaDirecta);
             opciones.add(new OpcionRuta(rutaDirecta, margen));
         }
         
         // Buscar rutas con una escala
-        Ruta rutaConEscala = buscarRutaConEscala(origen, destino);
+        ArrayList<Vuelo> rutaConEscala = buscarRutaConEscala(origen, destino);
         if (rutaConEscala != null && esRutaValida(paquete, rutaConEscala)) {
             double margen = calcularMargenTiempoRuta(paquete, rutaConEscala);
             opciones.add(new OpcionRuta(rutaConEscala, margen));
         }
         
         // Buscar rutas con dos escalas
-        Ruta rutaConDosEscalas = buscarRutaConDosEscalas(origen, destino);
+        ArrayList<Vuelo> rutaConDosEscalas = buscarRutaConDosEscalas(origen, destino);
         if (rutaConDosEscalas != null && esRutaValida(paquete, rutaConDosEscalas)) {
             double margen = calcularMargenTiempoRuta(paquete, rutaConDosEscalas);
             opciones.add(new OpcionRuta(rutaConDosEscalas, margen));
@@ -331,8 +335,8 @@ public class ALNSRepair {
         return opciones;
     }
     
-    private Ruta encontrarMejorRuta(Paquete paquete) {
-        List<OpcionRuta> opciones = encontrarTodasOpcionesRuta(paquete);
+    private ArrayList<Vuelo> encontrarMejorRuta(Paquete paquete) {
+        ArrayList<OpcionRuta> opciones = encontrarTodasLasOpcionesRuta(paquete);
         if (opciones.isEmpty()) return null;
         
         // Seleccionar la ruta con mayor margen de tiempo
@@ -340,21 +344,21 @@ public class ALNSRepair {
         return opciones.get(0).ruta;
     }
     
-    private Ruta encontrarRutaConMaximoMargen(Paquete paquete) {
+    private ArrayList<Vuelo> encontrarRutaConMaximoMargen(Paquete paquete) {
         return encontrarMejorRuta(paquete); // Ya implementado arriba
     }
     
-    private Ruta encontrarRutaConMaximaCapacidad(Paquete paquete) {
-        List<OpcionRuta> opciones = encontrarTodasOpcionesRuta(paquete);
+    private ArrayList<Vuelo> encontrarRutaConMaximaCapacidad(Paquete paquete) {
+        ArrayList<OpcionRuta> opciones = encontrarTodasLasOpcionesRuta(paquete);
         if (opciones.isEmpty()) return null;
         
         // Calcular capacidad disponible para cada ruta
-        List<OpcionCapacidadRuta> opcionesCapacidad = new ArrayList<>();
+        ArrayList<OpcionCapacidadRuta> opcionesCapacidad = new ArrayList<>();
         for (OpcionRuta opcion : opciones) {
             double capacidadTotal = 0;
             double capacidadUsada = 0;
             
-            for (Vuelo vuelo : opcion.ruta.getVuelos()) {
+            for (Vuelo vuelo : opcion.ruta) {
                 capacidadTotal += vuelo.getCapacidadMaxima();
                 capacidadUsada += vuelo.getCapacidadUsada();
             }
@@ -376,29 +380,29 @@ public class ALNSRepair {
     }
     
     /**
-     * Calcula margen sin doble conteo y usando fechaCreacion
+     * PATCH: Calcula margen sin doble conteo y usando fechaPedido
      */
-    private double calcularMargenTiempoRuta(Paquete paquete, Ruta ruta) {
-        if (ruta == null || ruta.getVuelos().isEmpty()) {
+    private double calcularMargenTiempoRuta(Paquete paquete, ArrayList<Vuelo> ruta) {
+        if (ruta == null || ruta.isEmpty()) {
             return 0.0;
         }
         
         // Sumar solo tiempo de vuelos + conexiones (sin extras por continente)
         double tiempoTotal = 0.0;
-        for (Vuelo vuelo : ruta.getVuelos()) {
+        for (Vuelo vuelo : ruta) {
             tiempoTotal += vuelo.getTiempoTransporte();
         }
         
         // Agregar tiempo de conexión (2 horas por conexión)
-        tiempoTotal += (ruta.getVuelos().size() - 1) * 2.0;
+        tiempoTotal += (ruta.size() - 1) * 2.0;
         
-        // Usar fechaCreacion vs deadline, null-safe
-        if (paquete.getFechaCreacion() == null || paquete.getFechaLimiteEntrega() == null) {
+        // PATCH: Usar fechaPedido vs deadline, null-safe
+        if (paquete.getFechaPedido() == null || paquete.getFechaLimiteEntrega() == null) {
             return 1.0;
         }
         
-        // Calcular presupuesto de horas desde fechaCreacion
-        long presupuesto = ChronoUnit.HOURS.between(paquete.getFechaCreacion(), paquete.getFechaLimiteEntrega());
+        // Calcular presupuesto de horas desde fechaPedido
+        long presupuesto = ChronoUnit.HOURS.between(paquete.getFechaPedido(), paquete.getFechaLimiteEntrega());
         if (presupuesto < 0) presupuesto = 0; // Clamp negativo
         
         double margen = presupuesto - tiempoTotal;
@@ -406,24 +410,22 @@ public class ALNSRepair {
     }
     
     /**
-     * Helper para validar capacidad de ruta con cantidad específica
+     * PATCH: Helper para validar capacidad de ruta con cantidad específica
      */
-    private boolean cabeEnCapacidadRuta(Ruta ruta, int cantidad) {
+    private boolean cabeEnCapacidadRuta(ArrayList<Vuelo> ruta, int cantidad) {
         if (ruta == null) return false;
-        for (Vuelo vuelo : ruta.getVuelos()) {
-            if (vuelo.getCapacidadUsada() + cantidad > vuelo.getCapacidadMaxima()) {
-                return false;
-            }
+        for (Vuelo f : ruta) {
+            if (f.getCapacidadUsada() + cantidad > f.getCapacidadMaxima()) return false;
         }
         return true;
     }
     
     /**
-     * Versión con cantidad específica de productos
+     * PATCH: Versión con cantidad específica de productos
      */
-    private boolean esRutaValida(Paquete paquete, Ruta ruta, int cantidad) {
-        if (ruta == null || ruta.getVuelos().isEmpty()) {
-            return paquete.getAeropuertoActual().equals(paquete.getAeropuertoDestino());
+    private boolean esRutaValida(Paquete paquete, ArrayList<Vuelo> ruta, int cantidad) {
+        if (ruta == null || ruta.isEmpty()) {
+            return paquete.getUbicacionActual().equals(paquete.getCiudadDestino());
         }
         
         // Verificar capacidad de vuelos con cantidad específica
@@ -432,96 +434,102 @@ public class ALNSRepair {
         }
         
         // Verificar continuidad de ruta
-        String ubicacionActual = paquete.getAeropuertoActual();
-        for (Vuelo vuelo : ruta.getVuelos()) {
-            if (!vuelo.getAeropuertoOrigen().getCodigoIATA().equals(ubicacionActual)) {
+        Ciudad ubicacionActual = paquete.getUbicacionActual();
+        for (Vuelo vuelo : ruta) {
+            Aeropuerto aeropuertoActual = obtenerAeropuertoPorCiudad(ubicacionActual);
+            if (!vuelo.getAeropuertoOrigen().equals(aeropuertoActual)) {
                 return false;
             }
-            ubicacionActual = vuelo.getAeropuertoDestino().getCodigoIATA();
+            ubicacionActual = obtenerCiudadPorAeropuerto(vuelo.getAeropuertoDestino());
         }
         
-        if (!ubicacionActual.equals(paquete.getAeropuertoDestino())) {
+        if (!ubicacionActual.equals(paquete.getCiudadDestino())) {
             return false;
         }
         
         // Verificar deadline
-        return respetaDeadline(paquete, ruta);
+        return seRespetaDeadline(paquete, ruta);
     }
     
     /**
-     * Versión original que delega calculando cantidad
+     * PATCH: Versión original que delega calculando cantidad
      */
-    private boolean esRutaValida(Paquete paquete, Ruta ruta) {
-        int cantidad = 1; // En nuestro modelo, cada paquete = 1 producto
+    private boolean esRutaValida(Paquete paquete, ArrayList<Vuelo> ruta) {
+        int cantidad = (paquete.getProductos() != null && !paquete.getProductos().isEmpty()) ? paquete.getProductos().size() : 1;
         return esRutaValida(paquete, ruta, cantidad);
     }
     
     /**
-     * Verifica deadline sin doble conteo y null-safe
+     * PATCH: Verifica deadline sin doble conteo y null-safe
      */
-    private boolean respetaDeadline(Paquete paquete, Ruta ruta) {
-        if (ruta == null || ruta.getVuelos().isEmpty()) {
+    private boolean seRespetaDeadline(Paquete paquete, ArrayList<Vuelo> ruta) {
+        if (ruta == null || ruta.isEmpty()) {
             return false;
         }
         
-        // Null-safe
-        if (paquete.getFechaCreacion() == null || paquete.getFechaLimiteEntrega() == null) {
+        // PATCH: Null-safe
+        if (paquete.getFechaPedido() == null || paquete.getFechaLimiteEntrega() == null) {
             return false;
         }
         
         // Sumar solo tiempo de vuelos + conexiones
         double tiempoTotal = 0.0;
-        for (Vuelo vuelo : ruta.getVuelos()) {
+        for (Vuelo vuelo : ruta) {
             tiempoTotal += vuelo.getTiempoTransporte();
         }
         
         // Agregar tiempo de conexión
-        tiempoTotal += (ruta.getVuelos().size() - 1) * 2.0;
+        tiempoTotal += (ruta.size() - 1) * 2.0;
         
-        // Calcular tiempo disponible desde fechaCreacion
-        long horasHastaDeadline = ChronoUnit.HOURS.between(paquete.getFechaCreacion(), paquete.getFechaLimiteEntrega());
+        // Calcular tiempo disponible desde fechaPedido
+        long horasHastaDeadline = ChronoUnit.HOURS.between(paquete.getFechaPedido(), paquete.getFechaLimiteEntrega());
         
         return horasHastaDeadline >= tiempoTotal;
     }
     
-    // Métodos de búsqueda de rutas
-    private Ruta buscarRutaDirecta(String origen, String destino) {
-        if (origen.equals(destino)) {
-            Ruta ruta = new Ruta();
-            ruta.setId(1); // ID temporal
-            ruta.setVuelos(new ArrayList<>());
-            return ruta;
-        }
+    // Métodos de búsqueda de rutas (simplificados, podrían referenciar a Solution.java)
+    private ArrayList<Vuelo> buscarRutaDirecta(Ciudad origen, Ciudad destino) {
+        Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
+        Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
         
-        // Buscar vuelo directo
+        if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
+        
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(origen) && 
-                vuelo.getAeropuertoDestino().getCodigoIATA().equals(destino) &&
+            if (vuelo.getAeropuertoOrigen().equals(aeropuertoOrigen) && 
+                vuelo.getAeropuertoDestino().equals(aeropuertoDestino) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 
-                Ruta ruta = new Ruta();
-                ruta.setId(1); // ID temporal
-                ruta.setVuelos(new ArrayList<>());
-                ruta.getVuelos().add(vuelo);
-                ruta.setTiempoTotal(vuelo.getTiempoTransporte());
-                ruta.setCostoTotal(vuelo.getCosto());
+                ArrayList<Vuelo> ruta = new ArrayList<>();
+                ruta.add(vuelo);
                 return ruta;
             }
         }
         return null;
     }
     
-    private Ruta buscarRutaConEscala(String origen, String destino) {
-        // Buscar escala intermedia
-        for (Aeropuerto aeropuertoIntermedio : aeropuertos) {
-            String intermedio = aeropuertoIntermedio.getCodigoIATA();
-            if (intermedio.equals(origen) || intermedio.equals(destino)) continue;
-            
-            // Buscar primer vuelo: origen -> intermedio
+    private ArrayList<Vuelo> buscarRutaConEscala(Ciudad origen, Ciudad destino) {
+        Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
+        Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
+        
+        if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
+        
+        // Crear lista de aeropuertos intermedios y barajarla
+        ArrayList<Aeropuerto> intermedios = new ArrayList<>();
+        for (Aeropuerto aeropuerto : aeropuertos) {
+            if (!aeropuerto.equals(aeropuertoOrigen) && !aeropuerto.equals(aeropuertoDestino)) {
+                intermedios.add(aeropuerto);
+            }
+        }
+        Collections.shuffle(intermedios, aleatorio);
+        
+        for (Aeropuerto intermedio : intermedios) {
             Vuelo primerVuelo = null;
+            Vuelo segundoVuelo = null;
+            
+            // Buscar primer segmento
             for (Vuelo vuelo : vuelos) {
-                if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(origen) && 
-                    vuelo.getAeropuertoDestino().getCodigoIATA().equals(intermedio) &&
+                if (vuelo.getAeropuertoOrigen().equals(aeropuertoOrigen) && 
+                    vuelo.getAeropuertoDestino().equals(intermedio) &&
                     vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                     primerVuelo = vuelo;
                     break;
@@ -530,11 +538,10 @@ public class ALNSRepair {
             
             if (primerVuelo == null) continue;
             
-            // Buscar segundo vuelo: intermedio -> destino
-            Vuelo segundoVuelo = null;
+            // Buscar segundo segmento
             for (Vuelo vuelo : vuelos) {
-                if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(intermedio) && 
-                    vuelo.getAeropuertoDestino().getCodigoIATA().equals(destino) &&
+                if (vuelo.getAeropuertoOrigen().equals(intermedio) && 
+                    vuelo.getAeropuertoDestino().equals(aeropuertoDestino) &&
                     vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                     segundoVuelo = vuelo;
                     break;
@@ -542,13 +549,9 @@ public class ALNSRepair {
             }
             
             if (segundoVuelo != null) {
-                Ruta ruta = new Ruta();
-                ruta.setId(2); // ID temporal
-                ruta.setVuelos(new ArrayList<>());
-                ruta.getVuelos().add(primerVuelo);
-                ruta.getVuelos().add(segundoVuelo);
-                ruta.setTiempoTotal(primerVuelo.getTiempoTransporte() + segundoVuelo.getTiempoTransporte());
-                ruta.setCostoTotal(primerVuelo.getCosto() + segundoVuelo.getCosto());
+                ArrayList<Vuelo> ruta = new ArrayList<>();
+                ruta.add(primerVuelo);
+                ruta.add(segundoVuelo);
                 return ruta;
             }
         }
@@ -556,18 +559,23 @@ public class ALNSRepair {
         return null;
     }
     
-    private Ruta buscarRutaConDosEscalas(String origen, String destino) {
+    private ArrayList<Vuelo> buscarRutaConDosEscalas(Ciudad origen, Ciudad destino) {
+        Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
+        Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
+        
+        if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
+        
         // Simplificado: buscar solo algunas combinaciones aleatorias para eficiencia
-        List<Aeropuerto> candidatos = new ArrayList<>();
+        ArrayList<Aeropuerto> candidatos = new ArrayList<>();
         for (Aeropuerto aeropuerto : aeropuertos) {
-            if (!aeropuerto.getCodigoIATA().equals(origen) && !aeropuerto.getCodigoIATA().equals(destino)) {
+            if (!aeropuerto.equals(aeropuertoOrigen) && !aeropuerto.equals(aeropuertoDestino)) {
                 candidatos.add(aeropuerto);
             }
         }
         
         if (candidatos.size() < 2) return null;
         
-        Collections.shuffle(candidatos, generadorAleatorio);
+        Collections.shuffle(candidatos, aleatorio);
         int maxIntentos = Math.min(10, candidatos.size() - 1);
         
         for (int i = 0; i < maxIntentos; i++) {
@@ -575,11 +583,11 @@ public class ALNSRepair {
             for (int j = i + 1; j < Math.min(i + 5, candidatos.size()); j++) {
                 Aeropuerto segundo = candidatos.get(j);
                 
-                Ruta ruta = intentarRutaConDosEscalas(origen, primero.getCodigoIATA(), segundo.getCodigoIATA(), destino);
+                ArrayList<Vuelo> ruta = intentarRutaConDosEscalas(aeropuertoOrigen, primero, segundo, aeropuertoDestino);
                 if (ruta != null) return ruta;
                 
                 // También probar en orden inverso
-                ruta = intentarRutaConDosEscalas(origen, segundo.getCodigoIATA(), primero.getCodigoIATA(), destino);
+                ruta = intentarRutaConDosEscalas(aeropuertoOrigen, segundo, primero, aeropuertoDestino);
                 if (ruta != null) return ruta;
             }
         }
@@ -587,13 +595,13 @@ public class ALNSRepair {
         return null;
     }
     
-    private Ruta intentarRutaConDosEscalas(String origen, String primero, String segundo, String destino) {
+    private ArrayList<Vuelo> intentarRutaConDosEscalas(Aeropuerto origen, Aeropuerto primero, Aeropuerto segundo, Aeropuerto destino) {
         Vuelo vuelo1 = null, vuelo2 = null, vuelo3 = null;
         
         // Buscar vuelo 1: origen -> primero
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(origen) && 
-                vuelo.getAeropuertoDestino().getCodigoIATA().equals(primero) &&
+            if (vuelo.getAeropuertoOrigen().equals(origen) && 
+                vuelo.getAeropuertoDestino().equals(primero) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo1 = vuelo;
                 break;
@@ -604,8 +612,8 @@ public class ALNSRepair {
         
         // Buscar vuelo 2: primero -> segundo
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(primero) && 
-                vuelo.getAeropuertoDestino().getCodigoIATA().equals(segundo) &&
+            if (vuelo.getAeropuertoOrigen().equals(primero) && 
+                vuelo.getAeropuertoDestino().equals(segundo) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo2 = vuelo;
                 break;
@@ -616,8 +624,8 @@ public class ALNSRepair {
         
         // Buscar vuelo 3: segundo -> destino
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(segundo) && 
-                vuelo.getAeropuertoDestino().getCodigoIATA().equals(destino) &&
+            if (vuelo.getAeropuertoOrigen().equals(segundo) && 
+                vuelo.getAeropuertoDestino().equals(destino) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo3 = vuelo;
                 break;
@@ -625,14 +633,10 @@ public class ALNSRepair {
         }
         
         if (vuelo3 != null) {
-            Ruta ruta = new Ruta();
-            ruta.setId(3); // ID temporal
-            ruta.setVuelos(new ArrayList<>());
-            ruta.getVuelos().add(vuelo1);
-            ruta.getVuelos().add(vuelo2);
-            ruta.getVuelos().add(vuelo3);
-            ruta.setTiempoTotal(vuelo1.getTiempoTransporte() + vuelo2.getTiempoTransporte() + vuelo3.getTiempoTransporte());
-            ruta.setCostoTotal(vuelo1.getCosto() + vuelo2.getCosto() + vuelo3.getCosto());
+            ArrayList<Vuelo> ruta = new ArrayList<>();
+            ruta.add(vuelo1);
+            ruta.add(vuelo2);
+            ruta.add(vuelo3);
             return ruta;
         }
         
@@ -640,55 +644,64 @@ public class ALNSRepair {
     }
     
     /**
-     * Obtiene un aeropuerto por su código IATA
+     * PATCH: Ciudad→Aeropuerto robusto por nombre (evita equals frágil)
      */
-    private Aeropuerto obtenerAeropuertoPorCodigo(String codigoIATA) {
-        return aeropuertos.stream()
-            .filter(a -> a.getCodigoIATA().equals(codigoIATA))
-            .findFirst()
-            .orElse(null);
+    private Aeropuerto obtenerAeropuertoPorCiudad(Ciudad ciudad) {
+        if (ciudad == null || ciudad.getNombre() == null) return null;
+        
+        String nombreCiudad = ciudad.getNombre().trim().toLowerCase();
+        
+        for (Aeropuerto aeropuerto : aeropuertos) {
+            if (aeropuerto.getCiudad() != null && aeropuerto.getCiudad().getNombre() != null &&
+                aeropuerto.getCiudad().getNombre().trim().toLowerCase().equals(nombreCiudad)) {
+                return aeropuerto;
+            }
+        }
+        return null;
     }
     
-    private boolean tieneCapacidadAlmacen(Aeropuerto aeropuertoDestino, int cantidadProductos) {
-        if (aeropuertoDestino == null) {
+    private Ciudad obtenerCiudadPorAeropuerto(Aeropuerto aeropuerto) {
+        return aeropuerto.getCiudad();
+    }
+    
+    private boolean tieneCapacidadAlmacen(Aeropuerto aeropuertoDestino, int conteoProductos) {
+        if (aeropuertoDestino.getAlmacen() == null) {
             return false;
         }
         
-        int ocupacionActual = ocupacionAlmacenes.getOrDefault(aeropuertoDestino.getCodigoIATA(), 0);
-        return (ocupacionActual + cantidadProductos) <= aeropuertoDestino.getCapacidadAlmacen();
+        int ocupacionActual = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
+        return (ocupacionActual + conteoProductos) <= aeropuertoDestino.getAlmacen().getCapacidadMaxima();
     }
     
-    private void actualizarCapacidadesVuelos(Ruta ruta, int cantidadProductos) {
-        for (Vuelo vuelo : ruta.getVuelos()) {
-            vuelo.setCapacidadUsada(vuelo.getCapacidadUsada() + cantidadProductos);
+    private void actualizarCapacidadesVuelos(ArrayList<Vuelo> ruta, int conteoProductos) {
+        for (Vuelo vuelo : ruta) {
+            vuelo.setCapacidadUsada(vuelo.getCapacidadUsada() + conteoProductos);
         }
     }
     
-    private void incrementarOcupacionAlmacen(Aeropuerto aeropuerto, int cantidadProductos) {
-        if (aeropuerto != null) {
-            int actual = ocupacionAlmacenes.getOrDefault(aeropuerto.getCodigoIATA(), 0);
-            ocupacionAlmacenes.put(aeropuerto.getCodigoIATA(), actual + cantidadProductos);
-        }
+    private void incrementarOcupacionAlmacen(Aeropuerto aeropuerto, int conteoProductos) {
+        int actual = ocupacionAlmacenes.getOrDefault(aeropuerto, 0);
+        ocupacionAlmacenes.put(aeropuerto, actual + conteoProductos);
     }
     
     // ================= CLASES AUXILIARES =================
     
     private static class OpcionRuta {
-        Ruta ruta;
+        ArrayList<Vuelo> ruta;
         double margenTiempo;
         
-        OpcionRuta(Ruta ruta, double margenTiempo) {
+        OpcionRuta(ArrayList<Vuelo> ruta, double margenTiempo) {
             this.ruta = ruta;
             this.margenTiempo = margenTiempo;
         }
     }
     
     private static class OpcionCapacidadRuta {
-        Ruta ruta;
+        ArrayList<Vuelo> ruta;
         double capacidadDisponible;
         double margenTiempo;
         
-        OpcionCapacidadRuta(Ruta ruta, double capacidadDisponible, double margenTiempo) {
+        OpcionCapacidadRuta(ArrayList<Vuelo> ruta, double capacidadDisponible, double margenTiempo) {
             this.ruta = ruta;
             this.capacidadDisponible = capacidadDisponible;
             this.margenTiempo = margenTiempo;
@@ -698,33 +711,33 @@ public class ALNSRepair {
     /**
      * Clase para encapsular el resultado de una operación de reparación
      */
-    public static class RepairResult {
-        private Map<Paquete, Ruta> solucionReparada;
-        private List<Paquete> paquetesNoAsignados;
+    public static class ResultadoReparacion {
+        private HashMap<Paquete, ArrayList<Vuelo>> solucionReparada;
+        private ArrayList<Paquete> paquetesNoAsignados;
         
-        public RepairResult(Map<Paquete, Ruta> solucionReparada,
-                           List<Paquete> paquetesNoAsignados) {
+        public ResultadoReparacion(HashMap<Paquete, ArrayList<Vuelo>> solucionReparada,
+                           ArrayList<Paquete> paquetesNoAsignados) {
             this.solucionReparada = solucionReparada;
             this.paquetesNoAsignados = paquetesNoAsignados;
         }
         
-        public Map<Paquete, Ruta> getRepairedSolution() {
+        public HashMap<Paquete, ArrayList<Vuelo>> getSolucionReparada() {
             return solucionReparada;
         }
         
-        public List<Paquete> getUnassignedPackages() {
+        public ArrayList<Paquete> getPaquetesNoAsignados() {
             return paquetesNoAsignados;
         }
         
-        public int getNumRepairedPackages() {
+        public int getNumPaquetesReparados() {
             return solucionReparada.size();
         }
         
-        public boolean isSuccess() {
+        public boolean esExitoso() {
             return !solucionReparada.isEmpty() || paquetesNoAsignados.isEmpty();
         }
         
-        public int getNumUnassignedPackages() {
+        public int getNumPaquetesNoAsignados() {
             return paquetesNoAsignados.size();
         }
     }

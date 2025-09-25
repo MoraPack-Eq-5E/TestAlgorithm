@@ -1,5 +1,6 @@
 package com.grupo5e.morapack.core.model;
 
+import com.grupo5e.morapack.core.enums.EstadoAeropuerto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,12 +13,19 @@ import java.util.Objects;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Aeropuerto {
+    private int id;
     private String codigoIATA;
-    private String ciudad;
+    private String alias;
+    private int zonaHorariaUTC;
+    private String latitud;
+    private String longitud;
+    private Ciudad ciudad;
+    private EstadoAeropuerto estado;
+    private Almacen almacen;
+    
+    // Campos adicionales para compatibilidad
     private String pais;
     private String continente;
-    private double latitud;
-    private double longitud;
     private int capacidadAlmacen; // Capacidad entre 600-1000 paquetes
     private int paquetesEnAlmacen; // Paquetes actualmente en almacén
     private boolean esSedeMoraPack; // Lima, Bruselas, Baku
@@ -25,14 +33,14 @@ public class Aeropuerto {
     public Aeropuerto(String codigoIATA, String ciudad, String pais, String continente, 
                       double latitud, double longitud, int capacidadAlmacen, boolean esSedeMoraPack) {
         this.codigoIATA = codigoIATA;
-        this.ciudad = ciudad;
         this.pais = pais;
         this.continente = continente;
-        this.latitud = latitud;
-        this.longitud = longitud;
+        this.latitud = String.valueOf(latitud);
+        this.longitud = String.valueOf(longitud);
         this.capacidadAlmacen = capacidadAlmacen;
         this.paquetesEnAlmacen = 0;
         this.esSedeMoraPack = esSedeMoraPack;
+        // Nota: ciudad se debe asignar como objeto Ciudad, no como String
     }
     
     public boolean puedeAlmacenar(int cantidad) {

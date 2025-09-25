@@ -192,7 +192,11 @@ public class ALNSSolver {
     public Solucion resolver() {
         // Generar solución inicial
         solucionActual = generarSolucionInicial();
-        mejorSolucion = solucionActual.copiar();
+        
+        // CORRECCIÓN ALNS: NO asumir que la solución inicial es la mejor
+        // La mejor solución se actualizará solo cuando encontremos una realmente mejor
+        mejorSolucion = null; // Inicializar como null
+        double mejorFitness = Double.MAX_VALUE; // Track del mejor fitness
         
         // Ciclo principal ALNS
         for (iteracionActual = 1; iteracionActual <= iteracionesMaximas; iteracionActual++) {
@@ -216,13 +220,13 @@ public class ALNSSolver {
             
             // LOG: Estado antes de destruir
             System.out.printf(
-                "Iter %d | opD=%s | T=%.3f | q=%d | actualF=%.3f | mejorF=%.3f | ruteados=%d/%d%n",
+                "Iter %d | opD=%s | T=%.3f | q=%d | actualF=%.3f | mejorF=%s | ruteados=%d/%d%n",
                 iteracionActual,
                 opDestruccion.getNombre(),
                 temperaturaActual,
                 q,
                 solucionActual.getFitness(),
-                mejorSolucion.getFitness(),
+                mejorSolucion != null ? String.format("%.3f", mejorSolucion.getFitness()) : "N/A",
                 solucionActual.getCantidadPaquetes(),
                 contextoProblema.getTodosPaquetes().size()
             );
@@ -230,10 +234,11 @@ public class ALNSSolver {
             List<String> paquetesRemovidos = opDestruccion.destruir(solucionTemporal, q);
             
             // LOG: Estado tras destruir
-            System.out.printf("   -> tras destruir: paquetes=%d, vuelos=%d, hash=%d%n",
+            System.out.printf("   -> tras destruir: paquetes=%d, vuelos=%d, hash=%d, removidos=%d%n",
                 solucionTemporal.getCantidadPaquetes(),
                 solucionTemporal.getOcupacionVuelos().size(),
-                solucionTemporal.hashCode()
+                solucionTemporal.hashCode(),
+                paquetesRemovidos.size()
             );
             
             // Fase de construcción (reconstruye sobre la solución ya destruida)
@@ -266,18 +271,34 @@ public class ALNSSolver {
             
             // Criterio de aceptación (Simulated Annealing)
             boolean aceptada = aceptarSolucion(nuevaSolucion);
+            double probabilidad = Math.exp(-Math.min(delta, temperaturaActual * 10) / temperaturaActual);
             System.out.printf("   -> actualF=%.3f | newF=%.3f | delta=%.3f | prob=%.6f | aceptada=%s%n",
-                actualF, newF, delta, Math.exp(-Math.min(delta, temperaturaActual * 10) / temperaturaActual), 
+                actualF, newF, delta, probabilidad, 
                 aceptada ? "SI" : "NO"
             );
+            
+            // DEBUG: Mostrar información adicional cada 10 iteraciones
+            if (iteracionActual % 10 == 0) {
+                System.out.printf("   DEBUG: T=%.3f, delta=%.3f, prob=%.6f, mejor=%s%n",
+                    temperaturaActual, delta, probabilidad, 
+                    nuevaSolucion.esMejorQue(solucionActual) ? "SI" : "NO");
+            }
+            
+            // DEBUG: Verificar si las soluciones son realmente diferentes
+            if (Math.abs(delta) < 0.001) {
+                System.out.printf("   WARNING: Delta muy pequeño (%.6f) - posible problema de operadores%n", delta);
+            }
             
             if (aceptada) {
                 solucionActual = nuevaSolucion;
                 
-                // Actualizar mejor solución
-                if (nuevaSolucion.esMejorQue(mejorSolucion)) {
+                // CORRECCIÓN ALNS: Actualizar mejor solución solo si es realmente mejor
+                double nuevaFitness = nuevaSolucion.getFitness();
+                if (mejorSolucion == null || nuevaFitness < mejorFitness) {
                     mejorSolucion = nuevaSolucion.copiar();
+                    mejorFitness = nuevaFitness;
                     iteracionesSinMejora = 0; // Reset contador (literatura estándar)
+                    System.out.printf("   *** NUEVA MEJOR SOLUCIÓN: fitness=%.3f ***%n", mejorFitness);
                 } else {
                     iteracionesSinMejora++;
                 }
@@ -308,14 +329,14 @@ public class ALNSSolver {
             
             // Registrar progreso
             historialFitness.add(solucionActual.getFitness());
-            historialMejorFitness.add(mejorSolucion.getFitness());
+            historialMejorFitness.add(mejorSolucion != null ? mejorSolucion.getFitness() : solucionActual.getFitness());
             
             // Mostrar progreso cada 100 iteraciones (solo si está habilitado el logging verbose)
             ALNSConfig config = ALNSConfig.getInstance();
             if (iteracionActual % 100 == 0 && config.isEnableVerboseLogging()) {
                 System.out.println("Iteración " + iteracionActual + 
                                  ", Fitness actual: " + solucionActual.getFitness() + 
-                                 ", Mejor: " + mejorSolucion.getFitness() + 
+                                 ", Mejor: " + (mejorSolucion != null ? mejorSolucion.getFitness() : "N/A") + 
                                  ", Temperatura: " + temperaturaActual);
                 
                 // Mostrar estadísticas de paquetes problemáticos
@@ -323,7 +344,13 @@ public class ALNSSolver {
             }
         }
         
-        return mejorSolucion;
+        // CORRECCIÓN ALNS: Retornar la mejor solución encontrada, o la inicial si no se encontró ninguna mejor
+        if (mejorSolucion != null) {
+            return mejorSolucion;
+        } else {
+            System.out.println("WARNING: No se encontró ninguna solución mejor que la inicial");
+            return solucionActual;
+        }
     }
     
     /**
@@ -406,6 +433,11 @@ public class ALNSSolver {
         // CORRECCIÓN: Usar función única para calcular fitness
         int N = contextoProblema.getTodosPaquetes().size();
         solucionInicial.calcularFitness(N);
+        
+        // DEBUG: Mostrar información de la solución inicial
+        System.out.printf("SOLUCION INICIAL: paquetes=%d/%d, fitness=%.3f, factible=%s%n",
+            solucionInicial.getCantidadPaquetes(), todosPaquetes.size(),
+            solucionInicial.getFitness(), solucionInicial.isEsFactible());
         
         // LITERATURA ALNS: Asegurar que la solución inicial no sea demasiado optimizada
         // Si rutea menos del 50% de paquetes, es aceptable para ALNS

@@ -145,7 +145,7 @@ public class DemoALNSPuro {
     
     private static void ejecutarALNSConProgreso(ContextoProblema contexto) {
         // Configure ALNS for DEBUG - minimal parameters
-        ALNSSolver solver = new ALNSSolver(50, 100.0, 0.99); // Más iteraciones, temperatura más baja, enfriamiento más lento
+        ALNSSolver solver = new ALNSSolver(10, 5000.0, 0.98); // Temperatura mucho más alta para aceptar soluciones peores
         
         solver.configurarProblema(
             new ArrayList<>(contexto.getTodosPaquetes()),

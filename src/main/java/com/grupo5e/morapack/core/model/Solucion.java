@@ -228,6 +228,9 @@ public class Solucion {
     }
     
     public boolean esMejorQue(Solucion otra) {
+        // CORRECCIÓN: Manejar caso donde otra es null
+        if (otra == null) return true; // Cualquier solución es mejor que null
+        
         if (this.esFactible && !otra.esFactible) return true;
         if (!this.esFactible && otra.esFactible) return false;
         return this.funcionObjetivo < otra.funcionObjetivo;

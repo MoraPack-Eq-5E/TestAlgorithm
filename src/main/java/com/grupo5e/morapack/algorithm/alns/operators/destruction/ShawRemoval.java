@@ -26,7 +26,7 @@ public class ShawRemoval extends AbstractOperator implements OperadorDestruccion
     public List<String> destruir(Solucion solucion, int cantidadRemover) {
         // CORRECCIÓN: Permitir más paquetes pero con límite razonable
         int paquetesDisponibles = solucion.getRutasPaquetes().size();
-        int cantidadLimitada = Math.min(cantidadRemover, Math.max(1, Math.min(10, paquetesDisponibles / 10)));
+        int cantidadLimitada = Math.min(cantidadRemover, Math.max(1, Math.min(100, paquetesDisponibles / 5)));
         
         // Usar la implementación con contexto
         return destruirConContexto(solucion, cantidadLimitada, null);

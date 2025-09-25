@@ -10,9 +10,11 @@ public class Constantes {
     public static final int LIMITE_INFERIOR_ESPACIO_SOLUCION = 100;
     public static final int LIMITE_SUPERIOR_ESPACIO_SOLUCION = 200;
     
-    public static final double RATIO_DESTRUCCION = 0.8;
-    public static final int DESTRUCCION_MIN_PAQUETES = 5000;
-    public static final int DESTRUCCION_MAX_PAQUETES = 5000;
+    // Parámetros de destrucción ALNS optimizados para MoraPack
+    public static final double RATIO_DESTRUCCION = 0.15;        // 15% - Ratio moderado para ALNS
+    public static final int DESTRUCCION_MIN_PAQUETES = 10;      // Mínimo 10 paquetes
+    public static final int DESTRUCCION_MAX_PAQUETES = 500;     // Máximo 500 paquetes (ajustable según problema)
+    public static final int DESTRUCCION_MAX_PAQUETES_EXPANSION = 100;  // Para expansiones más controladas
     
     // Constantes de tiempo de entrega
     public static final double TIEMPO_MAX_ENTREGA_MISMO_CONTINENTE = 2.0;
@@ -34,6 +36,10 @@ public class Constantes {
     // NUEVO: Control de tipo de solución inicial
     public static final boolean USAR_SOLUCION_INICIAL_CODICIOSA = false; // true=codiciosa, false=aleatoria
     public static final double PROBABILIDAD_ASIGNACION_ALEATORIA = 0.3; // Para solución aleatoria: 30% de asignación
+    
+    // Control de logs
+    public static final boolean LOGGING_VERBOSO = false; // true=logs detallados, false=logs mínimos
+    public static final int INTERVALO_LOG_ITERACION = 100; // Mostrar solo cada X iteraciones
 
     public static final String ALMACEN_LIMA = "Lima, Peru";
     public static final String ALMACEN_BRUSELAS = "Brussels, Belgium";

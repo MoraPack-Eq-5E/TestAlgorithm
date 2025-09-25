@@ -7,7 +7,6 @@ import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Getter
 @Setter
@@ -32,36 +31,5 @@ public class Cliente {
         this.codigoIATAPreferido = codigoIATAPreferido;
         this.historialPedidos = new ArrayList<>();
         this.clienteVIP = false;
-    }
-    
-    public void agregarPedido(String pedidoId) {
-        historialPedidos.add(pedidoId);
-        // Un cliente se vuelve VIP después de 10 pedidos
-        if (historialPedidos.size() >= 10) {
-            this.clienteVIP = true;
-        }
-    }
-    
-    public int getCantidadPedidos() {
-        return historialPedidos.size();
-    }
-    
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Cliente cliente = (Cliente) o;
-        return Objects.equals(id, cliente.id);
-    }
-    
-    @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
-    
-    @Override
-    public String toString() {
-        return String.format("Cliente[%s: %s, Aeropuerto: %s, VIP: %s]", 
-                           id, nombre, codigoIATAPreferido, clienteVIP);
     }
 }

@@ -384,11 +384,11 @@ public class ALNSSolver {
             case 0: // Reparación Codiciosa
                 return operadoresReparacion.reparacionCodiciosa(solucion, paquetesDestruidos);
             case 1: // Reparación por Arrepentimiento
-                return operadoresReparacion.reparacionPorArrepentimiento(solucion, paquetesDestruidos, 2); // nivelArrepentimiento = 2
+                return operadoresReparacion.reparacionArrepentimiento(solucion, paquetesDestruidos, 2); // nivelArrepentimiento = 2
             case 2: // Reparación Basada en Tiempo
-                return operadoresReparacion.reparacionBasadaEnTiempo(solucion, paquetesDestruidos);
+                return operadoresReparacion.reparacionPorTiempo(solucion, paquetesDestruidos);
             case 3: // Reparación Basada en Capacidad
-                return operadoresReparacion.reparacionBasadaEnCapacidad(solucion, paquetesDestruidos);
+                return operadoresReparacion.reparacionPorCapacidad(solucion, paquetesDestruidos);
             default:
                 return operadoresReparacion.reparacionCodiciosa(solucion, paquetesDestruidos);
         }
@@ -673,8 +673,7 @@ private ArrayList<Vuelo> encontrarRutaDirecta(Ciudad origen, Ciudad destino) {
     // Buscar vuelo directo entre aeropuertos (respetando capacidad)
     for (Vuelo vuelo : vuelos) {
         if (vuelo.getAeropuertoOrigen().equals(aeropuertoOrigen) &&
-            vuelo.getAeropuertoDestino().equals(aeropuertoDestino) &&
-            vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
+            vuelo.getAeropuertoDestino().equals(aeropuertoDestino)) {
             ArrayList<Vuelo> ruta = new ArrayList<>();
             ruta.add(vuelo);
             return ruta;
@@ -688,8 +687,9 @@ private ArrayList<Vuelo> encontrarRutaDirecta(Ciudad origen, Ciudad destino) {
  * PATCH: Implementar esRutaValida (método crítico faltante)
  */
 private boolean esRutaValida(Paquete paquete, ArrayList<Vuelo> ruta) {
-    if (paquete == null ) return false;
     if (ruta == null || ruta.isEmpty()) return false;
+    if (paquete == null ) return false;
+    
 
     int conteoProductos = paquete.getProductos() != null ? paquete.getProductos().size() : 1;
 

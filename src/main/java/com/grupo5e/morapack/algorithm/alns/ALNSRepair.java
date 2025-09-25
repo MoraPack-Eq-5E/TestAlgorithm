@@ -46,8 +46,8 @@ public class ALNSRepair {
     }
     
     /**
-     * Reparación Greedy: Inserta paquetes usando el enfoque greedy optimizado.
-     * Prioriza paquetes por deadline y busca la mejor ruta disponible.
+     * Reparación Greedy Mejorada: Inserta paquetes usando enfoque optimizado para MoraPack.
+     * Prioriza paquetes por deadline y eficiencia de ruta específica para el negocio.
      */
     public ResultadoReparacion reparacionCodiciosa(
             HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
@@ -56,18 +56,32 @@ public class ALNSRepair {
         HashMap<Paquete, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
         ArrayList<Paquete> paquetesNoAsignados = new ArrayList<>();
         
-        // Ordenar paquetes destruidos por deadline (más urgente primero)
+        // Ordenamiento inteligente específico para MoraPack
         ArrayList<Paquete> paquetesParaReparar = new ArrayList<>();
         for (Map.Entry<Paquete, ArrayList<Vuelo>> entrada : paquetesDestruidos) {
             paquetesParaReparar.add(entrada.getKey());
         }
         
-        // PATCH: Null-safe sorting
         paquetesParaReparar.sort((p1, p2) -> {
-            if (p1.getFechaLimiteEntrega() == null && p2.getFechaLimiteEntrega() == null) return 0;
-            if (p1.getFechaLimiteEntrega() == null) return 1; // nulls last
-            if (p2.getFechaLimiteEntrega() == null) return -1; // nulls last
-            return p1.getFechaLimiteEntrega().compareTo(p2.getFechaLimiteEntrega());
+            // 1. Priorizar por urgencia (tiempo restante vs promesa MoraPack)
+            double urgencia1 = calcularUrgenciaPaquete(p1);
+            double urgencia2 = calcularUrgenciaPaquete(p2);
+            int comparacionUrgencia = Double.compare(urgencia2, urgencia1); // Mayor urgencia primero
+            if (comparacionUrgencia != 0) return comparacionUrgencia;
+            
+            // 2. Priorizar paquetes con más productos (mayor valor de negocio)
+            int productos1 = p1.getProductos() != null ? p1.getProductos().size() : 1;
+            int productos2 = p2.getProductos() != null ? p2.getProductos().size() : 1;
+            int comparacionProductos = Integer.compare(productos2, productos1);
+            if (comparacionProductos != 0) return comparacionProductos;
+            
+            // 3. Tie-break por deadline absoluto
+            LocalDateTime d1 = p1.getFechaLimiteEntrega();
+            LocalDateTime d2 = p2.getFechaLimiteEntrega();
+            if (d1 == null && d2 == null) return 0;
+            if (d1 == null) return 1; // nulls last
+            if (d2 == null) return -1; // nulls last
+            return d1.compareTo(d2);
         });
         
         int conteoReinsertados = 0;
@@ -107,7 +121,7 @@ public class ALNSRepair {
      * Reparación por Regret: Calcula el "arrepentimiento" de no insertar cada paquete
      * y prioriza aquellos con mayor diferencia entre mejor y segunda mejor opción.
      */
-    public ResultadoReparacion reparacionPorArrepentimiento(
+    public ResultadoReparacion reparacionArrepentimiento(
             HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
             ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos,
             int nivelArrepentimiento) {
@@ -147,16 +161,23 @@ public class ALNSRepair {
                 // Ordenar por margen de tiempo (mejor primero)
                 opcionesRuta.sort((r1, r2) -> Double.compare(r2.margenTiempo, r1.margenTiempo));
                 
-                // Calcular arrepentimiento
+                // Calcular regret-k real
                 double arrepentimiento = 0;
-                if (opcionesRuta.size() >= 2) {
-                    // Arrepentimiento = diferencia entre mejor y segunda mejor opción
-                    arrepentimiento = opcionesRuta.get(0).margenTiempo - opcionesRuta.get(1).margenTiempo;
+                int k = Math.max(2, nivelArrepentimiento);
+                int limite = Math.min(k, opcionesRuta.size());
+                if (limite >= 2) {
+                    double mejorMargen = opcionesRuta.get(0).margenTiempo;
+                    for (int i = 1; i < limite; i++) {
+                        arrepentimiento += (mejorMargen - opcionesRuta.get(i).margenTiempo);
+                    }
                 } else if (opcionesRuta.size() == 1) {
-                    // Solo una opción: arrepentimiento basado en urgencia
-                    LocalDateTime ahora = LocalDateTime.now();
-                    long horasHastaDeadline = ChronoUnit.HOURS.between(ahora, paquete.getFechaLimiteEntrega());
-                    arrepentimiento = Math.max(0, 168 - horasHastaDeadline); // Más arrepentimiento para deadlines más cercanos
+                    // Solo una opción: usar urgencia basada en orderDate→deadline
+                    if (paquete.getFechaPedido() != null && paquete.getFechaLimiteEntrega() != null) {
+                        long horasHastaDeadline = ChronoUnit.HOURS.between(paquete.getFechaPedido(), paquete.getFechaLimiteEntrega());
+                        arrepentimiento = Math.max(0, 72 - Math.min(72, horasHastaDeadline));
+                    } else {
+                        arrepentimiento = 0;
+                    }
                 }
                 
                 // Añadir factor de urgencia al arrepentimiento
@@ -173,7 +194,7 @@ public class ALNSRepair {
             }
             
             // Insertar el paquete con mayor arrepentimiento
-            if (mejorPaquete != null && mejorRuta != null) {
+            if (mejorPaquete != null && mejorRuta != null && esRutaValida(mejorPaquete, mejorRuta, Math.max(1, mejorPaquete.getProductos() != null ? mejorPaquete.getProductos().size() : 1))) {
                 solucionReparada.put(mejorPaquete, mejorRuta);
                 int conteoProductos = mejorPaquete.getProductos() != null ? mejorPaquete.getProductos().size() : 1;
                 actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
@@ -196,7 +217,7 @@ public class ALNSRepair {
     /**
      * Reparación por tiempo: Prioriza paquetes con deadlines más cercanos.
      */
-    public ResultadoReparacion reparacionBasadaEnTiempo(
+    public ResultadoReparacion reparacionPorTiempo(
             HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
             ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos) {
         
@@ -210,9 +231,11 @@ public class ALNSRepair {
         }
         
         paquetesParaReparar.sort((p1, p2) -> {
-            LocalDateTime ahora = LocalDateTime.now();
-            long horasP1 = ChronoUnit.HOURS.between(ahora, p1.getFechaLimiteEntrega());
-            long horasP2 = ChronoUnit.HOURS.between(ahora, p2.getFechaLimiteEntrega());
+            // Ordenar por presupuesto real desde orderDate (nulls last)
+            if (p1.getFechaPedido() == null || p1.getFechaLimiteEntrega() == null) return 1;
+            if (p2.getFechaPedido() == null || p2.getFechaLimiteEntrega() == null) return -1;
+            long horasP1 = ChronoUnit.HOURS.between(p1.getFechaPedido(), p1.getFechaLimiteEntrega());
+            long horasP2 = ChronoUnit.HOURS.between(p2.getFechaPedido(), p2.getFechaLimiteEntrega());
             return Long.compare(horasP1, horasP2);
         });
         
@@ -249,7 +272,7 @@ public class ALNSRepair {
     /**
      * Reparación por capacidad: Prioriza rutas con mayor capacidad disponible.
      */
-    public ResultadoReparacion reparacionBasadaEnCapacidad(
+    public ResultadoReparacion reparacionPorCapacidad(
             HashMap<Paquete, ArrayList<Vuelo>> solucionParcial,
             ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> paquetesDestruidos) {
         
@@ -301,6 +324,55 @@ public class ALNSRepair {
     
     // ================= MÉTODOS AUXILIARES =================
     
+    /**
+     * Calcula la urgencia de un paquete específico para MoraPack
+     * Considera promesas de entrega según continentes y tiempo restante
+     */
+    private double calcularUrgenciaPaquete(Paquete paquete) {
+        if (paquete.getFechaPedido() == null || paquete.getFechaLimiteEntrega() == null) {
+            return 0.0; // Sin información de tiempo, baja prioridad
+        }
+        
+        // Calcular tiempo disponible desde orden hasta deadline
+        long totalHorasDisponibles = ChronoUnit.HOURS.between(paquete.getFechaPedido(), paquete.getFechaLimiteEntrega());
+        
+        // Determinar promesa MoraPack según continentes
+        boolean rutaMismoContinente = paquete.getUbicacionActual().getContinente() == 
+                                    paquete.getCiudadDestino().getContinente();
+        long promesaHorasMoraPack = rutaMismoContinente ? 48 : 72; // 2 días intra / 3 días inter
+        
+        // Calcular factor de urgencia
+        double factorUrgencia;
+        if (totalHorasDisponibles <= promesaHorasMoraPack * 0.5) {
+            // Muy urgente: menos de la mitad del tiempo de promesa disponible
+            factorUrgencia = 10.0;
+        } else if (totalHorasDisponibles <= promesaHorasMoraPack * 0.75) {
+            // Urgente: menos del 75% del tiempo de promesa disponible
+            factorUrgencia = 5.0;
+        } else if (totalHorasDisponibles <= promesaHorasMoraPack) {
+            // Moderadamente urgente: dentro del tiempo de promesa
+            factorUrgencia = 3.0;
+        } else if (totalHorasDisponibles <= promesaHorasMoraPack * 1.5) {
+            // Tiempo holgado: 50% más tiempo que la promesa
+            factorUrgencia = 1.0;
+        } else {
+            // Mucho tiempo disponible
+            factorUrgencia = 0.5;
+        }
+        
+        // Ajustar por prioridad del paquete (si está disponible)
+        if (paquete.getPrioridad() > 0) {
+            factorUrgencia *= (1.0 + paquete.getPrioridad() / 10.0); // Boost por prioridad
+        }
+        
+        // Penalizar si excede promesa MoraPack
+        if (totalHorasDisponibles > promesaHorasMoraPack * 1.2) {
+            factorUrgencia *= 0.8; // Reducir prioridad para paquetes con demasiado tiempo
+        }
+        
+        return factorUrgencia;
+    }
+    
     private ArrayList<OpcionRuta> encontrarTodasLasOpcionesRuta(Paquete paquete) {
         ArrayList<OpcionRuta> opciones = new ArrayList<>();
         Ciudad origen = paquete.getUbicacionActual();
@@ -312,24 +384,24 @@ public class ALNSRepair {
         }
         
         // Buscar ruta directa
-        ArrayList<Vuelo> rutaDirecta = buscarRutaDirecta(origen, destino);
+        ArrayList<Vuelo> rutaDirecta = encontrarRutaDirecta(origen, destino);
         if (rutaDirecta != null && esRutaValida(paquete, rutaDirecta)) {
             double margen = calcularMargenTiempoRuta(paquete, rutaDirecta);
             opciones.add(new OpcionRuta(rutaDirecta, margen));
         }
         
         // Buscar rutas con una escala
-        ArrayList<Vuelo> rutaConEscala = buscarRutaConEscala(origen, destino);
-        if (rutaConEscala != null && esRutaValida(paquete, rutaConEscala)) {
-            double margen = calcularMargenTiempoRuta(paquete, rutaConEscala);
-            opciones.add(new OpcionRuta(rutaConEscala, margen));
+        ArrayList<Vuelo> rutaUnaEscala = encontrarRutaUnaEscala(origen, destino);
+        if (rutaUnaEscala != null && esRutaValida(paquete, rutaUnaEscala)) {
+            double margen = calcularMargenTiempoRuta(paquete, rutaUnaEscala);
+            opciones.add(new OpcionRuta(rutaUnaEscala, margen));
         }
         
         // Buscar rutas con dos escalas
-        ArrayList<Vuelo> rutaConDosEscalas = buscarRutaConDosEscalas(origen, destino);
-        if (rutaConDosEscalas != null && esRutaValida(paquete, rutaConDosEscalas)) {
-            double margen = calcularMargenTiempoRuta(paquete, rutaConDosEscalas);
-            opciones.add(new OpcionRuta(rutaConDosEscalas, margen));
+        ArrayList<Vuelo> rutaDosEscalas = encontrarRutaDosEscalas(origen, destino);
+        if (rutaDosEscalas != null && esRutaValida(paquete, rutaDosEscalas)) {
+            double margen = calcularMargenTiempoRuta(paquete, rutaDosEscalas);
+            opciones.add(new OpcionRuta(rutaDosEscalas, margen));
         }
         
         return opciones;
@@ -460,35 +532,46 @@ public class ALNSRepair {
     }
     
     /**
-     * PATCH: Verifica deadline sin doble conteo y null-safe
+     * CORRECCIÓN: Aplicar las mismas correcciones que Solution.java
      */
     private boolean seRespetaDeadline(Paquete paquete, ArrayList<Vuelo> ruta) {
-        if (ruta == null || ruta.isEmpty()) {
-            return false;
-        }
+        double tiempoTotal = 0;
         
-        // PATCH: Null-safe
-        if (paquete.getFechaPedido() == null || paquete.getFechaLimiteEntrega() == null) {
-            return false;
-        }
-        
-        // Sumar solo tiempo de vuelos + conexiones
-        double tiempoTotal = 0.0;
+        // CORRECCIÓN: Solo usar transportTime de vuelos (sin doble conteo)
         for (Vuelo vuelo : ruta) {
             tiempoTotal += vuelo.getTiempoTransporte();
         }
         
-        // Agregar tiempo de conexión
-        tiempoTotal += (ruta.size() - 1) * 2.0;
+        // Añadir penalización por conexiones
+        if (ruta.size() > 1) {
+            tiempoTotal += (ruta.size() - 1) * 2.0;
+        }
         
-        // Calcular tiempo disponible desde fechaPedido
+        // CORRECCIÓN: Validar promesas MoraPack explícitamente
+        Ciudad origen = paquete.getUbicacionActual();
+        Ciudad destino = paquete.getCiudadDestino();
+        boolean rutaMismoContinente = origen.getContinente() == destino.getContinente();
+        long promesaHorasMoraPack = rutaMismoContinente ? 48 : 72; // 2 días intra / 3 días inter
+        
+        if (tiempoTotal > promesaHorasMoraPack) {
+            return false; // Excede promesa MoraPack
+        }
+        
+        // Factor de seguridad
+        if (aleatorio != null) {
+            int factorComplejidad = ruta.size() + (rutaMismoContinente ? 0 : 2);
+            double margenSeguridad = 0.01 * (1 + aleatorio.nextInt(factorComplejidad * 3));
+            tiempoTotal = tiempoTotal * (1.0 + margenSeguridad);
+        }
+        
+        // CORRECCIÓN: Usar orderDate en lugar de "now"
         long horasHastaDeadline = ChronoUnit.HOURS.between(paquete.getFechaPedido(), paquete.getFechaLimiteEntrega());
         
-        return horasHastaDeadline >= tiempoTotal;
+        return tiempoTotal <= horasHastaDeadline;
     }
     
     // Métodos de búsqueda de rutas (simplificados, podrían referenciar a Solution.java)
-    private ArrayList<Vuelo> buscarRutaDirecta(Ciudad origen, Ciudad destino) {
+    private ArrayList<Vuelo> encontrarRutaDirecta(Ciudad origen, Ciudad destino) {
         Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
         Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
         
@@ -507,7 +590,7 @@ public class ALNSRepair {
         return null;
     }
     
-    private ArrayList<Vuelo> buscarRutaConEscala(Ciudad origen, Ciudad destino) {
+    private ArrayList<Vuelo> encontrarRutaUnaEscala(Ciudad origen, Ciudad destino) {
         Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
         Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
         
@@ -559,7 +642,7 @@ public class ALNSRepair {
         return null;
     }
     
-    private ArrayList<Vuelo> buscarRutaConDosEscalas(Ciudad origen, Ciudad destino) {
+    private ArrayList<Vuelo> encontrarRutaDosEscalas(Ciudad origen, Ciudad destino) {
         Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
         Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
         
@@ -583,11 +666,11 @@ public class ALNSRepair {
             for (int j = i + 1; j < Math.min(i + 5, candidatos.size()); j++) {
                 Aeropuerto segundo = candidatos.get(j);
                 
-                ArrayList<Vuelo> ruta = intentarRutaConDosEscalas(aeropuertoOrigen, primero, segundo, aeropuertoDestino);
+                ArrayList<Vuelo> ruta = intentarRutaDosEscalas(aeropuertoOrigen, primero, segundo, aeropuertoDestino);
                 if (ruta != null) return ruta;
                 
                 // También probar en orden inverso
-                ruta = intentarRutaConDosEscalas(aeropuertoOrigen, segundo, primero, aeropuertoDestino);
+                ruta = intentarRutaDosEscalas(aeropuertoOrigen, segundo, primero, aeropuertoDestino);
                 if (ruta != null) return ruta;
             }
         }
@@ -595,7 +678,7 @@ public class ALNSRepair {
         return null;
     }
     
-    private ArrayList<Vuelo> intentarRutaConDosEscalas(Aeropuerto origen, Aeropuerto primero, Aeropuerto segundo, Aeropuerto destino) {
+    private ArrayList<Vuelo> intentarRutaDosEscalas(Aeropuerto origen, Aeropuerto primero, Aeropuerto segundo, Aeropuerto destino) {
         Vuelo vuelo1 = null, vuelo2 = null, vuelo3 = null;
         
         // Buscar vuelo 1: origen -> primero

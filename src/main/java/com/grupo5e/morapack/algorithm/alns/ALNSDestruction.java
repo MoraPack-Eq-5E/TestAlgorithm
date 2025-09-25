@@ -87,6 +87,7 @@ public class ALNSDestruction {
         // CORRECCIÓN: Construir lista con score = w1*slack + w2*productos
         class Candidato { 
             Paquete paquete; 
+            ArrayList<Vuelo> ruta; 
             double puntuacion; 
         }
         
@@ -106,6 +107,7 @@ public class ALNSDestruction {
             
             Candidato c = new Candidato();
             c.paquete = p; 
+            c.ruta = r; 
             c.puntuacion = puntuacion;
             candidatos.add(c);
         }
@@ -113,7 +115,7 @@ public class ALNSDestruction {
         // CORRECCIÓN: Ordenar por puntuacion desc y destruir los top-k con diversidad
         candidatos.sort((a, b) -> Double.compare(b.puntuacion, a.puntuacion));
         
-        int numADestruir = Math.min(
+        int numDestruir = Math.min(
             Math.max((int)(solucionActual.size() * ratioDestruccion), minDestruir),
             Math.min(maxDestruir, solucionActual.size())
         );
@@ -121,7 +123,7 @@ public class ALNSDestruction {
         ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> destruidos = new ArrayList<>();
         int tomados = 0, i = 0;
         
-        while (tomados < numADestruir && i < candidatos.size()) {
+        while (tomados < numDestruir && i < candidatos.size()) {
             // CORRECCIÓN: 10% probabilidad de saltar para diversidad
             if (aleatorio.nextDouble() < 0.10 && i + 1 < candidatos.size()) {
                 i++;
@@ -205,7 +207,7 @@ public class ALNSDestruction {
             return destruccionAleatoria(solucionActual, ratioDestruccion, minDestruir, maxDestruir);
         }
         
-        int numADestruir = Math.min(
+        int numDestruir = Math.min(
             Math.max((int)(paquetesCandidatos.size() * ratioDestruccion), minDestruir),
             Math.min(maxDestruir, paquetesCandidatos.size())
         );
@@ -257,14 +259,14 @@ public class ALNSDestruction {
             return Integer.compare(c2.productos, c1.productos);
         });
         
-        // Extraer los packages ordenados
+        // Extraer los paquetes ordenados
         paquetesCandidatos.clear();
         for (InformacionCandidato info : candidatos) {
             paquetesCandidatos.add(info.paquete);
         }
         
         // Seleccionar paquetes con sesgo hacia los intercontinentales
-        for (int i = 0; i < numADestruir; i++) {
+        for (int i = 0; i < numDestruir; i++) {
             Paquete paqueteSeleccionado = paquetesCandidatos.get(i);
             // REFINAMIENTO: Consistencia - usar siempre solucionActual como fuente
             ArrayList<Vuelo> ruta = solucionActual.get(paqueteSeleccionado);
@@ -278,7 +280,7 @@ public class ALNSDestruction {
             solucionParcial.remove(paqueteSeleccionado);
         }
         
-        System.out.println("Destrucción geográfica: " + numADestruir + 
+        System.out.println("Destrucción geográfica: " + numDestruir + 
                           " paquetes eliminados del continente " + continenteSeleccionado);
         
         return new ResultadoDestruccion(solucionParcial, paquetesDestruidos);
@@ -302,9 +304,9 @@ public class ALNSDestruction {
         
         // CORRECCIÓN: Agrupar por slack real, no por "horas a deadline"
         ArrayList<Paquete> slackBajo = new ArrayList<>();    // slack ≤ 8 h (no tocar si es posible)
-        ArrayList<Paquete> slackMedio = new ArrayList<>();   // 8–32 h
-        ArrayList<Paquete> slackAlto = new ArrayList<>();    // > 32 h
-        ArrayList<Paquete> enDestino = new ArrayList<>();   // REFINAMIENTO: Separar paquetes ya en destino
+        ArrayList<Paquete> slackMedio = new ArrayList<>();    // 8–32 h
+        ArrayList<Paquete> slackAlto = new ArrayList<>();   // > 32 h
+        ArrayList<Paquete> enDestino = new ArrayList<>(); // REFINAMIENTO: Separar paquetes ya en destino
         
         for (Map.Entry<Paquete, ArrayList<Vuelo>> e : solucionActual.entrySet()) {
             Paquete paquete = e.getKey();
@@ -365,13 +367,13 @@ public class ALNSDestruction {
             Collections.shuffle(grupoSeleccionado, aleatorio);
         }
         
-        int numADestruir = Math.min(
+        int numDestruir = Math.min(
             Math.max((int)(grupoSeleccionado.size() * ratioDestruccion), minDestruir),
             Math.min(maxDestruir, grupoSeleccionado.size())
         );
         
         ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> destruidos = new ArrayList<>();
-        for (int i = 0; i < numADestruir; i++) {
+        for (int i = 0; i < numDestruir; i++) {
             Paquete seleccionado = grupoSeleccionado.get(i);
             ArrayList<Vuelo> ruta = solucionActual.get(seleccionado);
             if (ruta == null) ruta = new ArrayList<>(); // Protección contra nulos
@@ -380,7 +382,7 @@ public class ALNSDestruction {
             solucionParcial.remove(seleccionado);
         }
         
-        System.out.println("Destrucción temporal por slack: " + numADestruir + " paquetes del grupo " + nombreGrupo);
+        System.out.println("Destrucción temporal por slack: " + numDestruir + " paquetes del grupo " + nombreGrupo);
         
         return new ResultadoDestruccion(solucionParcial, destruidos);
     }
@@ -395,20 +397,21 @@ public class ALNSDestruction {
             int minDestruir,
             int maxDestruir) {
         
-        HashMap<Paquete, ArrayList<Vuelo>> parcial = new HashMap<>(solucionActual);
+        HashMap<Paquete, ArrayList<Vuelo>> solucionParcial = new HashMap<>(solucionActual);
         if (solucionActual.isEmpty()) {
-            return new ResultadoDestruccion(parcial, new ArrayList<>());
+            return new ResultadoDestruccion(solucionParcial, new ArrayList<>());
         }
         
         // CORRECCIÓN: Parámetros de scoring mejorados
         final double UMBRAL_UTILIZACION = 0.85;   // umbral de "crítico"
-        final double PESO_UTILIZACION = 1.0;      // peso de congestión
-        final double PESO_PRODUCTOS = 0.25;       // peso por productos
-        final double PENALIZACION_SLACK = 0.5;    // penaliza baja holgura
+        final double PESO_UTILIZACION = 1.0;            // peso de congestión
+        final double PESO_PRODUCTOS = 0.25;          // peso por productos
+        final double PENALIZACION_SLACK = 0.5;   // penaliza baja holgura
         
         // CORRECCIÓN: Score por paquete basado en congestión crítica + productos - urgencia
         class Candidato { 
             Paquete paquete; 
+            ArrayList<Vuelo> ruta; 
             double puntuacion; 
         }
         
@@ -439,6 +442,7 @@ public class ALNSDestruction {
             if (puntuacion > 0) {
                 Candidato c = new Candidato();
                 c.paquete = p;
+                c.ruta = r;
                 c.puntuacion = puntuacion;
                 candidatos.add(c);
             }
@@ -451,24 +455,24 @@ public class ALNSDestruction {
         // CORRECCIÓN: Ordenar por puntuacion desc (más alivio esperado primero)
         candidatos.sort((a, b) -> Double.compare(b.puntuacion, a.puntuacion));
         
-        int numADestruir = Math.min(
+        int numDestruir = Math.min(
             Math.max((int)(candidatos.size() * ratioDestruccion), minDestruir),
             Math.min(maxDestruir, candidatos.size())
         );
         
         ArrayList<Map.Entry<Paquete, ArrayList<Vuelo>>> destruidos = new ArrayList<>();
-        for (int i = 0; i < numADestruir; i++) {
+        for (int i = 0; i < numDestruir; i++) {
             Paquete seleccionado = candidatos.get(i).paquete;
             // REFINAMIENTO: Consistencia - usar solucionActual como fuente
             ArrayList<Vuelo> ruta = solucionActual.get(seleccionado);
             if (ruta == null) ruta = new ArrayList<>(); // Protección contra nulos
             
             destruidos.add(new java.util.AbstractMap.SimpleEntry<>(seleccionado, new ArrayList<>(ruta)));
-            parcial.remove(seleccionado);
+            solucionParcial.remove(seleccionado);
         }
         
-        System.out.println("Destrucción por congestión (mejorada): " + numADestruir + " paquetes");
-        return new ResultadoDestruccion(parcial, destruidos);
+        System.out.println("Destrucción por congestión (mejorada): " + numDestruir + " paquetes");
+        return new ResultadoDestruccion(solucionParcial, destruidos);
     }
     
     /**

@@ -132,7 +132,8 @@ public class ALNSSolver {
 
         this.temperatura = 100.0;
         this.tasaEnfriamiento = 0.98;
-        this.maxIteraciones = 1000;
+        //OJO CON ESTE
+        this.maxIteraciones = 500;
         this.tamanoSegmento = 25;
 
         this.contadorEstancamiento = 0;
@@ -157,6 +158,7 @@ public class ALNSSolver {
         System.out.println("Lectura de productos");
         System.out.println("Productos leídos: " + this.paquetes.size());
 
+        //SE GENERA UNA SOLUCION QUE SE MODIFICARA HASTA HALLAR LA CORRECTA O MEJOR
         System.out.println("\n=== GENERANDO SOLUCIÓN INICIAL ===");
         this.generarSolucionInicial();
 

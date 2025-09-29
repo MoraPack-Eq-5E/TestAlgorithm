@@ -9,13 +9,11 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Vuelo {
+public class Almacen {
     private int id;
-    private double frecuenciaPorDia;
-    private Aeropuerto aeropuertoOrigen;
-    private Aeropuerto aeropuertoDestino;
+    private Aeropuerto aeropuerto;
     private int capacidadMaxima;
     private int capacidadUsada;
-    private double tiempoTransporte;
-    private double costo;
+    private String nombre;
+    private boolean esPrincipal;
 }

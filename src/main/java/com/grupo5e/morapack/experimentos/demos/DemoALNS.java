@@ -1,4 +1,4 @@
-package com.grupo5e.morapack.demos;
+package com.grupo5e.morapack.experimentos.demos;
 
 import com.grupo5e.morapack.algorithm.alns.ALNSSolver;
 

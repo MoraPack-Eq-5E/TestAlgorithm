@@ -1,5 +1,7 @@
 package com.grupo5e.morapack.core.model;
 
+import com.grupo5e.morapack.core.enums.TipoDocumento;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,24 +14,32 @@ import java.util.List;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Cliente {
-    private String id;
-    private String nombre;
-    private String email;
-    private String telefono;
-    private String direccion;
-    private String ciudad;
-    private String pais;
-    private String codigoIATAPreferido; // Aeropuerto donde prefiere recoger
-    private List<String> historialPedidos;
-    private boolean clienteVIP;
+@Entity
+@Table(name = "clientes")
+public class Cliente extends Usuario {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String nombres;
+    private String apellidos;
+
+    @Enumerated(EnumType.STRING)
+    private TipoDocumento tipoDocumento;
+    private String numeroDocumento;
+
+    private String correo;
+    private String telefono; // Guardar en formato internacional E.164, ej: +51987654321
+
+    @ManyToOne
+    private Ciudad ciudadRecojo;
     
-    public Cliente(String id, String nombre, String email, String codigoIATAPreferido) {
-        this.id = id;
-        this.nombre = nombre;
-        this.email = email;
-        this.codigoIATAPreferido = codigoIATAPreferido;
-        this.historialPedidos = new ArrayList<>();
-        this.clienteVIP = false;
-    }
+//    public Cliente(String id, String nombre, String email, String codigoIATAPreferido) {
+//        this.id = id;
+//        this.nombre = nombre;
+//        this.correo = email;
+//        this.codigoIATAPreferido = codigoIATAPreferido;
+//        this.historialPedidos = new ArrayList<>();
+//        this.clienteVIP = false;
+//    }
 }

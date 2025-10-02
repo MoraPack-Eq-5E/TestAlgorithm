@@ -260,8 +260,8 @@ public class ALNSSolverExperimental implements AlgoritmoOptimizacion {
             Aeropuerto aeropuerto = entrada.getKey();
             int ocupacion = entrada.getValue();
 
-            if (aeropuerto.getAlmacen() != null && aeropuerto.getAlmacen().getCapacidadMaxima() > 0) {
-                double utilizacion = (double) ocupacion / aeropuerto.getAlmacen().getCapacidadMaxima();
+            if (aeropuerto.getCapacidadActual() > 0) {
+                double utilizacion = (double) ocupacion / aeropuerto.getCapacidadMaxima();
                 utilizacionTotal += utilizacion;
                 almacenesConDatos++;
             }

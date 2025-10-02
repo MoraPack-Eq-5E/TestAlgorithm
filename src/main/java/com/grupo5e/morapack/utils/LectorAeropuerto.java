@@ -2,7 +2,6 @@ package com.grupo5e.morapack.utils;
 
 import com.grupo5e.morapack.core.model.Aeropuerto;
 import com.grupo5e.morapack.core.model.Ciudad;
-import com.grupo5e.morapack.core.model.Almacen;
 import com.grupo5e.morapack.core.enums.Continente;
 import com.grupo5e.morapack.core.enums.EstadoAeropuerto;
 
@@ -133,30 +132,30 @@ public class LectorAeropuerto {
                         mapaCiudades.put(claveCiudad, ciudad);
                     }
                     
-                    // Crear Almacén para el aeropuerto
-                    Almacen almacen = new Almacen();
-                    almacen.setId(id);
-                    almacen.setCapacidadMaxima((int)capacidadMaxima);
-                    almacen.setCapacidadUsada(0);
-                    almacen.setNombre(nombreCiudad + " Almacén");
-                    almacen.setEsPrincipal(false);
+//                    // Crear Almacén para el aeropuerto
+//                    Almacen almacen = new Almacen();
+//                    almacen.setId(id);
+//                    almacen.setCapacidadMaxima((int)capacidadMaxima);
+//                    almacen.setCapacidadUsada(0);
+//                    almacen.setNombre(nombreCiudad + " Almacén");
+//                    almacen.setEsPrincipal(false);
+//
+//                    // Crear objeto Aeropuerto
+//                    Aeropuerto aeropuerto = new Aeropuerto();
+//                    aeropuerto.setId(id);
+//                    aeropuerto.setCodigoIATA(codigoIATA);
+//                    aeropuerto.setAlias(alias);
+//                    aeropuerto.setZonaHorariaUTC(zonaHoraria);
+//                    aeropuerto.setLatitud(latitudStr);
+//                    aeropuerto.setLongitud(longitudStr);
+//                    aeropuerto.setCiudad(ciudad);
+//                    aeropuerto.setEstado(EstadoAeropuerto.DISPONIBLE);
+//                    aeropuerto.setAlmacen(almacen);
+//
+//                    // Establecer referencia circular
+//                    almacen.setAeropuerto(aeropuerto);
                     
-                    // Crear objeto Aeropuerto
-                    Aeropuerto aeropuerto = new Aeropuerto();
-                    aeropuerto.setId(id);
-                    aeropuerto.setCodigoIATA(codigoIATA);
-                    aeropuerto.setAlias(alias);
-                    aeropuerto.setZonaHorariaUTC(zonaHoraria);
-                    aeropuerto.setLatitud(latitudStr);
-                    aeropuerto.setLongitud(longitudStr);
-                    aeropuerto.setCiudad(ciudad);
-                    aeropuerto.setEstado(EstadoAeropuerto.DISPONIBLE);
-                    aeropuerto.setAlmacen(almacen);
-                    
-                    // Establecer referencia circular
-                    almacen.setAeropuerto(aeropuerto);
-                    
-                    aeropuertos.add(aeropuerto);
+                    //aeropuertos.add(aeropuerto);
                 }
             }
             

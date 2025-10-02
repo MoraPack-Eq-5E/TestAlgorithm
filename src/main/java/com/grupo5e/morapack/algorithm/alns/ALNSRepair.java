@@ -748,12 +748,12 @@ public class ALNSRepair {
     }
     
     private boolean tieneCapacidadAlmacen(Aeropuerto aeropuertoDestino, int conteoProductos) {
-        if (aeropuertoDestino.getAlmacen() == null) {
+        if (aeropuertoDestino.getCapacidadActual() == 0) {
             return false;
         }
         
         int ocupacionActual = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
-        return (ocupacionActual + conteoProductos) <= aeropuertoDestino.getAlmacen().getCapacidadMaxima();
+        return (ocupacionActual + conteoProductos) <= aeropuertoDestino.getCapacidadActual();
     }
     
     private void actualizarCapacidadesVuelos(ArrayList<Vuelo> ruta, int conteoProductos) {

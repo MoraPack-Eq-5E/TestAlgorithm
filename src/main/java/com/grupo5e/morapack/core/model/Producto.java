@@ -1,6 +1,7 @@
 package com.grupo5e.morapack.core.model;
 
-import com.grupo5e.morapack.core.enums.Estado;
+import com.grupo5e.morapack.core.enums.EstadoProducto;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,8 +11,20 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Entity
+@Table(name = "productos")
 public class Producto {
-    private int id;
-    private StringBuilder vueloAsignado;
-    private Estado estado;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    // Relación: muchos productos pertenecen a un paquete
+    @ManyToOne
+    @JoinColumn(name = "paquete_id", nullable = false)
+    private Paquete paquete;
+
+    private String vueloAsignado;
+
+    @Enumerated(EnumType.STRING)
+    private EstadoProducto estado;
 }

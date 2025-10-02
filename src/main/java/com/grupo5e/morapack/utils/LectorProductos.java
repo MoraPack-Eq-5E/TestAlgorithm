@@ -1,5 +1,6 @@
 package com.grupo5e.morapack.utils;
 
+import com.grupo5e.morapack.core.enums.EstadoProducto;
 import com.grupo5e.morapack.core.model.Aeropuerto;
 import com.grupo5e.morapack.core.model.Ciudad;
 import com.grupo5e.morapack.core.enums.Continente;
@@ -7,7 +8,6 @@ import com.grupo5e.morapack.core.model.Cliente;
 import com.grupo5e.morapack.core.model.Paquete;
 import com.grupo5e.morapack.core.enums.EstadoPaquete;
 import com.grupo5e.morapack.core.model.Producto;
-import com.grupo5e.morapack.core.enums.Estado;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -38,14 +38,14 @@ public class LectorProductos {
     private void crearMapaAeropuertos() {
         this.mapaAeropuertos = new HashMap<>();
         for (Aeropuerto aeropuerto : aeropuertos) {
-            mapaAeropuertos.put(aeropuerto.getCodigoIATA(), aeropuerto);
+            mapaAeropuertos.put(aeropuerto.getCodigo(), aeropuerto);
         }
     }
 
     public ArrayList<Paquete> leerProductos() {
         try (BufferedReader reader = new BufferedReader(new FileReader(rutaArchivo))) {
             String linea;
-            int idPaquete = 1;
+            Long idPaquete = 1L;
             
             while ((linea = reader.readLine()) != null) {
                 // Saltar líneas vacías
@@ -61,7 +61,7 @@ public class LectorProductos {
                     int minuto = Integer.parseInt(partes[2]);
                     String codigoAeropuertoDestino = partes[3];
                     int cantidadProductos = Integer.parseInt(partes[4]); // Cantidad de productos en el paquete
-                    int idCliente = Integer.parseInt(partes[5]); // ID del cliente
+                    Long idCliente = (long) Integer.parseInt(partes[5]); // ID del cliente
                     
                     // Buscar aeropuerto de destino
                     Aeropuerto aeropuertoDestino = mapaAeropuertos.get(codigoAeropuertoDestino);
@@ -69,10 +69,10 @@ public class LectorProductos {
                     if (aeropuertoDestino != null) {
                         // Crear cliente
                         Cliente cliente = new Cliente();
-                        cliente.setId(String.valueOf(idCliente));
-                        cliente.setNombre("Cliente " + idCliente);
-                        cliente.setEmail("cliente" + idCliente + "@ejemplo.com");
-                        cliente.setCiudad(aeropuertoDestino.getCiudad().getNombre());
+                        cliente.setId(idCliente);
+                        cliente.setNombres("Cliente " + idCliente);
+                        cliente.setCorreo("cliente" + idCliente + "@ejemplo.com");
+                        cliente.setCiudadRecojo(aeropuertoDestino.getCiudad());
                         
                         // Calcular fecha de pedido y plazo de entrega
                         LocalDateTime ahora = LocalDateTime.now();
@@ -105,7 +105,7 @@ public class LectorProductos {
                         
                         // Crear objeto Paquete
                         Paquete paquete = new Paquete();
-                        paquete.setId(idPaquete++);
+                        paquete.setId(idPaquete+1);
                         paquete.setCliente(cliente);
                         paquete.setCiudadDestino(aeropuertoDestino.getCiudad());
                         paquete.setFechaPedido(fechaPedido);
@@ -116,8 +116,8 @@ public class LectorProductos {
                         ArrayList<Producto> productos = new ArrayList<>();
                         for (int i = 0; i < cantidadProductos; i++) {
                             Producto producto = new Producto();
-                            producto.setId(idProducto++);
-                            producto.setEstado(Estado.NO_ASIGNADO); // Producto no asignado inicialmente
+                            producto.setId(idProducto+1L);
+                            producto.setEstado(EstadoProducto.EN_ALMACEN); // Producto no asignado inicialmente
                             productos.add(producto);
                         }
                         paquete.setProductos(productos);

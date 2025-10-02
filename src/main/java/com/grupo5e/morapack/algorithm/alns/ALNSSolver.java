@@ -906,7 +906,7 @@ public class ALNSSolver {
         Paquete unidad = new Paquete();
 
         String idUnidadString = paqueteOriginal.getId() + "#" + indiceUnidad;
-        unidad.setId(idUnidadString.hashCode());
+        unidad.setId((long) idUnidadString.hashCode());
 
         unidad.setCliente(paqueteOriginal.getCliente());
         unidad.setCiudadDestino(paqueteOriginal.getCiudadDestino());
@@ -928,7 +928,7 @@ public class ALNSSolver {
         } else {
             Producto productoGenerico = new Producto();
             String idProductoString = paqueteOriginal.getId() + "_P" + indiceUnidad;
-            productoGenerico.setId(idProductoString.hashCode());
+            productoGenerico.setId((long) idProductoString.hashCode());
             productoUnico.add(productoGenerico);
         }
 
@@ -990,7 +990,7 @@ public class ALNSSolver {
 
         int conteoProductos = paquete.getProductos() != null ? paquete.getProductos().size() : 1;
         int ocupacionActual = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
-        int capacidadMaxima = aeropuertoDestino.getAlmacen().getCapacidadMaxima();
+        int capacidadMaxima = aeropuertoDestino.getCapacidadMaxima();
 
         return (ocupacionActual + conteoProductos) <= capacidadMaxima;
     }
@@ -1228,7 +1228,7 @@ public class ALNSSolver {
     
     int cantidadProductos = paquete.getProductos() != null ? paquete.getProductos().size() : 1;
     int ocupacionActual = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
-    int capacidadMaxima = aeropuertoDestino.getAlmacen().getCapacidadMaxima();
+    int capacidadMaxima = aeropuertoDestino.getCapacidadMaxima();
     
     return (ocupacionActual + cantidadProductos) <= capacidadMaxima;
 }
@@ -1622,8 +1622,8 @@ public class ALNSSolver {
         for (Map.Entry<Aeropuerto, Integer> e : ocupacionAlmacenes.entrySet()) {
             Aeropuerto a = e.getKey();
             int occ = e.getValue();
-            if (a.getAlmacen() != null && a.getAlmacen().getCapacidadMaxima() > 0) {
-                total += (double) occ / a.getAlmacen().getCapacidadMaxima();
+            if (a.getCapacidadMaxima() > 0) {
+                total += (double) occ / a.getCapacidadMaxima();
                 valid++;
             }
         }
@@ -1738,8 +1738,8 @@ public class ALNSSolver {
         for (Map.Entry<Aeropuerto, Integer> e : ocupacionAlmacenes.entrySet()) {
             Aeropuerto a = e.getKey();
             int occ = e.getValue();
-            if (a.getAlmacen() != null) {
-                int max = a.getAlmacen().getCapacidadMaxima();
+            if (a.getCapacidadMaxima() > 0) {
+                int max = a.getCapacidadMaxima();
                 totalCapacidad += max;
                 totalOcupacion += occ;
                 if (occ >= max) almacenesAlMax++;
@@ -1757,17 +1757,17 @@ public class ALNSSolver {
         if (ocupacionTemporalAlmacenes != null && !ocupacionTemporalAlmacenes.isEmpty()) {
             System.out.println("\n----- Picos de Ocupación Temporal -----");
             for (Aeropuerto aeropuerto : aeropuertos) {
-                if (aeropuerto.getAlmacen() != null) {
+                if (aeropuerto.getCapacidadMaxima() > 0) {
                     int[] pico = findPeakOccupancy(aeropuerto);
                     int minutoPico = pico[0];
                     int maxOcc = pico[1];
                     if (maxOcc > 0) {
                         int hora = minutoPico / 60;
                         int min = minutoPico % 60;
-                        double pct = (maxOcc * 100.0) / aeropuerto.getAlmacen().getCapacidadMaxima();
+                        double pct = (maxOcc * 100.0) / aeropuerto.getCapacidadMaxima();
                         if (pct > 50.0) {
                             System.out.println("  " + aeropuerto.getCiudad().getNombre() +
-                                              " - Pico: " + maxOcc + "/" + aeropuerto.getAlmacen().getCapacidadMaxima() +
+                                              " - Pico: " + maxOcc + "/" + aeropuerto.getCapacidadMaxima() +
                                               " (" + String.format("%.1f", pct) + "%) a las " +
                                               String.format("%02d:%02d", hora, min));
                         }
@@ -1908,9 +1908,9 @@ public class ALNSSolver {
     }
 
     private boolean agregarOcupacionTemporal(Aeropuerto aeropuerto, int minutoInicio, int duracionMinutos, int conteoProductos) {
-        if (aeropuerto == null || aeropuerto.getAlmacen() == null) return false;
+        if (aeropuerto == null) return false;
         int[] array = ocupacionTemporalAlmacenes.get(aeropuerto);
-        int capacidadMaxima = aeropuerto.getAlmacen().getCapacidadMaxima();
+        int capacidadMaxima = aeropuerto.getCapacidadMaxima();
         final int TOTAL_MINUTOS = HORIZON_DAYS * 24 * 60;
         int inicioClamp = Math.max(0, Math.min(minutoInicio, TOTAL_MINUTOS - 1));
         int finClamp = Math.max(0, Math.min(minutoInicio + duracionMinutos, TOTAL_MINUTOS));

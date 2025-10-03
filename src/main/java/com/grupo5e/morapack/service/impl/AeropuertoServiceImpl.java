@@ -15,6 +15,7 @@ public class AeropuertoServiceImpl implements AeropuertoService {
     public AeropuertoServiceImpl(AeropuertoRepository aeropuertoRepository) {
         this.aeropuertoRepository = aeropuertoRepository;
     }
+
     @Override
     public List<Aeropuerto> listar() {
         return aeropuertoRepository.findAll();

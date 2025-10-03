@@ -117,7 +117,7 @@ public class LectorProductos {
                         for (int i = 0; i < cantidadProductos; i++) {
                             Producto producto = new Producto();
                             producto.setId(idProducto+1L);
-                            producto.setEstado(EstadoProducto.EN_ALMACEN); // Producto no asignado inicialmente
+                            producto.setEstado(EstadoProducto.EN_ALMACEN); // ProductoRepository no asignado inicialmente
                             productos.add(producto);
                         }
                         paquete.setProductos(productos);

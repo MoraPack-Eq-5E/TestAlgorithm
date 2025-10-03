@@ -13,9 +13,6 @@ import lombok.Setter;
 @Entity
 @Table(name = "empleados")
 public class Empleado extends Usuario {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
     private String nombres;
     private String apellidos;

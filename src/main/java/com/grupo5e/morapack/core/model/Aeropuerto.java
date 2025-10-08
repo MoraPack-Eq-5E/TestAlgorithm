@@ -20,7 +20,7 @@ public class Aeropuerto {
 
     // Código IATA
     @Column(nullable = false, unique = true, length = 4)
-    private String codigo;
+    private String codigoIATA;
 
     private int zonaHorariaUTC;
     private String latitud;

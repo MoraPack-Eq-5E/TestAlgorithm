@@ -5,6 +5,7 @@ public class Constantes {
     public static final String RUTA_ARCHIVO_INFO_AEROPUERTOS = "data/aeropuertosinfo.txt";
     public static final String RUTA_ARCHIVO_VUELOS = "data/vuelos.txt";
     public static final String RUTA_ARCHIVO_PRODUCTOS = "data/productos.txt";
+    public static final String RUTA_ARCHIVO_CANCELACIONES = "data/cancelaciones.txt";
     
     // Constantes del algoritmo
     public static final int LIMITE_INFERIOR_ESPACIO_SOLUCION = 100;

@@ -7,8 +7,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import com.grupo5e.morapack.core.enums.EstadoVuelo;
 
-import java.sql.Time;
+//import java.sql.Time;
 import java.util.List;
+
+import java.time.LocalTime;
 
 @Getter
 @Setter
@@ -23,9 +25,11 @@ public class Vuelo {
 
     // Número de frecuencias por día (ejemplo: 2 vuelos diarios)
     private double frecuenciaPorDia;
-    private Time horaSalida;
-    private Time horaLlegada;
-
+//    private Time horaSalida;
+//    private Time horaLlegada;
+// Campos temporales para identificación y cancelaciones
+    private LocalTime horaSalida;
+    private LocalTime horaLlegada;
     // Relación: un vuelo tiene un aeropuerto origen
     @ManyToOne
     @JoinColumn(name = "aeropuerto_origen_id", referencedColumnName = "id", nullable = false)
@@ -50,4 +54,25 @@ public class Vuelo {
 
     @ManyToMany(mappedBy = "vuelos") // Relación bidireccional
     private List<Ruta> rutas;
+    
+
+    
+    /**
+     * Genera el identificador único del vuelo basado en ruta y horario.
+     * Formato: "ORIGEN-DESTINO-HH:MM"
+     * Ejemplo: "SKBO-SEQM-03:34"
+     * 
+     * @return Identificador único del vuelo, o null si faltan datos
+     */
+    public String getIdentificadorVuelo() {
+        if (aeropuertoOrigen == null || aeropuertoDestino == null || horaSalida == null) {
+            return null;
+        }
+        return String.format("%s-%s-%02d:%02d",
+            aeropuertoOrigen.getCodigoIATA(),
+            aeropuertoDestino.getCodigoIATA(),
+            horaSalida.getHour(),
+            horaSalida.getMinute()
+        );
+    }
 }

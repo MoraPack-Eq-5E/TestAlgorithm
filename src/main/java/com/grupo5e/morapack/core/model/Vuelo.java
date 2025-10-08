@@ -25,9 +25,11 @@ public class Vuelo {
 
     // Número de frecuencias por día (ejemplo: 2 vuelos diarios)
     private double frecuenciaPorDia;
-    private Time horaSalida;
-    private Time horaLlegada;
-
+//    private Time horaSalida;
+//    private Time horaLlegada;
+// Campos temporales para identificación y cancelaciones
+    private LocalTime horaSalida;
+    private LocalTime horaLlegada;
     // Relación: un vuelo tiene un aeropuerto origen
     @ManyToOne
     @JoinColumn(name = "aeropuerto_origen_id", referencedColumnName = "id", nullable = false)
@@ -53,9 +55,7 @@ public class Vuelo {
     @ManyToMany(mappedBy = "vuelos") // Relación bidireccional
     private List<Ruta> rutas;
     
-    // Campos temporales para identificación y cancelaciones
-    private LocalTime horaSalida;
-    private LocalTime horaLlegada;
+
     
     /**
      * Genera el identificador único del vuelo basado en ruta y horario.

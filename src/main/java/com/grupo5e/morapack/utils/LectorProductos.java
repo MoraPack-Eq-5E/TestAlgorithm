@@ -26,6 +26,9 @@ public class LectorProductos {
     private Map<String, Aeropuerto> mapaAeropuertos;
     private Random aleatorio;
     private int idProducto = 1;
+    private static final boolean DEBUG = true;
+    private long seqPaquete = 0L;   // si NO usas JPA real
+    private long seqProducto = 0L;
 
     public LectorProductos(String rutaArchivo, ArrayList<Aeropuerto> aeropuertos) {
         this.rutaArchivo = rutaArchivo;
@@ -36,9 +39,15 @@ public class LectorProductos {
     }
 
     private void crearMapaAeropuertos() {
+//        this.mapaAeropuertos = new HashMap<>();
+//        for (Aeropuerto aeropuerto : aeropuertos) {
+//            mapaAeropuertos.put(aeropuerto.getCodigoIATA(), aeropuerto);
+//        }
         this.mapaAeropuertos = new HashMap<>();
-        for (Aeropuerto aeropuerto : aeropuertos) {
-            mapaAeropuertos.put(aeropuerto.getCodigoIATA(), aeropuerto);
+        for (Aeropuerto a : aeropuertos) {
+            if (a.getCodigoIATA() != null) {
+                mapaAeropuertos.put(a.getCodigoIATA().trim().toUpperCase(), a); // aquí está el ICAO
+            }
         }
     }
 
@@ -46,26 +55,26 @@ public class LectorProductos {
         try (BufferedReader reader = new BufferedReader(new FileReader(rutaArchivo))) {
             String linea;
             Long idPaquete = 1L;
-            
+
             while ((linea = reader.readLine()) != null) {
                 // Saltar líneas vacías
                 if (linea.trim().isEmpty()) {
                     continue;
                 }
-                
+
                 // Parsear datos del producto
                 String[] partes = linea.trim().split("\\s+");
                 if (partes.length >= 6) {
                     int diasPrioridad = Integer.parseInt(partes[0]);
                     int hora = Integer.parseInt(partes[1]);
                     int minuto = Integer.parseInt(partes[2]);
-                    String codigoAeropuertoDestino = partes[3];
+                    String codigoAeropuertoDestino = partes[3].trim().toUpperCase();
                     int cantidadProductos = Integer.parseInt(partes[4]); // Cantidad de productos en el paquete
                     Long idCliente = (long) Integer.parseInt(partes[5]); // ID del cliente
-                    
+
                     // Buscar aeropuerto de destino
                     Aeropuerto aeropuertoDestino = mapaAeropuertos.get(codigoAeropuertoDestino);
-                    
+
                     if (aeropuertoDestino != null) {
                         // Crear cliente
                         Cliente cliente = new Cliente();
@@ -73,16 +82,16 @@ public class LectorProductos {
                         cliente.setNombres("Cliente " + idCliente);
                         cliente.setCorreo("cliente" + idCliente + "@ejemplo.com");
                         cliente.setCiudadRecojo(aeropuertoDestino.getCiudad());
-                        
+
                         // Calcular fecha de pedido y plazo de entrega
                         LocalDateTime ahora = LocalDateTime.now();
                         LocalDateTime fechaPedido = ahora.withHour(hora).withMinute(minuto).withSecond(0).withNano(0);
-                        
+
                         // Si la fechaPedido está en el pasado, establecerla para mañana
                         if (fechaPedido.isBefore(ahora)) {
                             fechaPedido = fechaPedido.plusDays(1);
                         }
-                        
+
                         // Establecer plazo de entrega basado en días de prioridad
                         LocalDateTime plazoEntrega;
                         switch (diasPrioridad) {
@@ -102,16 +111,16 @@ public class LectorProductos {
                                 plazoEntrega = fechaPedido.plus(7, ChronoUnit.DAYS);
                                 break;
                         }
-                        
+
                         // Crear objeto Paquete
                         Paquete paquete = new Paquete();
-                        paquete.setId(idPaquete+1);
+                        paquete.setId(idPaquete++);
                         paquete.setCliente(cliente);
                         paquete.setCiudadDestino(aeropuertoDestino.getCiudad());
                         paquete.setFechaPedido(fechaPedido);
                         paquete.setFechaLimiteEntrega(plazoEntrega);
                         paquete.setEstado(EstadoPaquete.PENDIENTE);
-                        
+
                         // Crear productos para este paquete
                         ArrayList<Producto> productos = new ArrayList<>();
                         for (int i = 0; i < cantidadProductos; i++) {
@@ -121,26 +130,27 @@ public class LectorProductos {
                             productos.add(producto);
                         }
                         paquete.setProductos(productos);
-                        
+
                         // Asumir que el paquete comienza en un almacén aleatorio en un continente diferente
                         Ciudad ubicacionActual = obtenerUbicacionAlmacenAleatoria(aeropuertoDestino.getCiudad().getContinente());
                         paquete.setUbicacionActual(ubicacionActual);
-                        
+
                         // Establecer prioridad basada en ventana de tiempo de entrega
                         double valorPrioridad = calcularPrioridad(fechaPedido, plazoEntrega);
                         paquete.setPrioridad(valorPrioridad);
-                        
+
                         paquetes.add(paquete);
                     }
                 }
             }
-            
+
         } catch (IOException e) {
             System.err.println("Error leyendo datos de productos: " + e.getMessage());
             e.printStackTrace();
         }
-        
+//
         return paquetes;
+
     }
     
     private Ciudad obtenerUbicacionAlmacenAleatoria(Continente continenteDestino) {

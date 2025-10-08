@@ -96,12 +96,12 @@ public class LectorAeropuerto {
                     }
                     
                     // Extraer capacidad
-                    double capacidadMaxima;
+                    int capacidadMaxima;
                     try {
-                        capacidadMaxima = Double.parseDouble(partes[6]);
+                        capacidadMaxima = Integer.parseInt(partes[6]);
                     } catch (NumberFormatException e) {
-                        capacidadMaxima = 400.0; // Capacidad por defecto
-                        System.out.println("Advertencia: No se pudo parsear capacidad para " + codigoIATA + ", usando valor por defecto 400.0");
+                        capacidadMaxima = 400; // Capacidad por defecto
+                        System.out.println("Advertencia: No se pudo parsear capacidad para " + codigoIATA + ", usando valor por defecto 400");
                     }
                     
                     // Extraer latitud y longitud
@@ -140,22 +140,23 @@ public class LectorAeropuerto {
 //                    almacen.setNombre(nombreCiudad + " Almacén");
 //                    almacen.setEsPrincipal(false);
 //
-//                    // Crear objeto Aeropuerto
-//                    Aeropuerto aeropuerto = new Aeropuerto();
-//                    aeropuerto.setId(id);
-//                    aeropuerto.setCodigoIATA(codigoIATA);
-//                    aeropuerto.setAlias(alias);
-//                    aeropuerto.setZonaHorariaUTC(zonaHoraria);
-//                    aeropuerto.setLatitud(latitudStr);
-//                    aeropuerto.setLongitud(longitudStr);
-//                    aeropuerto.setCiudad(ciudad);
-//                    aeropuerto.setEstado(EstadoAeropuerto.DISPONIBLE);
-//                    aeropuerto.setAlmacen(almacen);
+                    // Crear objeto Aeropuerto
+                    Aeropuerto aeropuerto = new Aeropuerto();
+                    aeropuerto.setCodigoIATA(codigoIATA);
+                    //aeropuerto.setAlias(alias);
+                    aeropuerto.setZonaHorariaUTC(zonaHoraria);
+                    aeropuerto.setLatitud(latitudStr);
+                    aeropuerto.setLongitud(longitudStr);
+                    aeropuerto.setCapacidadActual(0);
+                    aeropuerto.setCapacidadMaxima(capacidadMaxima);
+                    aeropuerto.setCiudad(ciudad);
+                    aeropuerto.setEstado(EstadoAeropuerto.DISPONIBLE);
+                    //aeropuerto.setAlmacen(almacen);
 //
 //                    // Establecer referencia circular
 //                    almacen.setAeropuerto(aeropuerto);
                     
-                    //aeropuertos.add(aeropuerto);
+                    aeropuertos.add(aeropuerto);
                 }
             }
             

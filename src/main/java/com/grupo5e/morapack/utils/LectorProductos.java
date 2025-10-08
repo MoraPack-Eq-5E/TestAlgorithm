@@ -38,7 +38,7 @@ public class LectorProductos {
     private void crearMapaAeropuertos() {
         this.mapaAeropuertos = new HashMap<>();
         for (Aeropuerto aeropuerto : aeropuertos) {
-            mapaAeropuertos.put(aeropuerto.getCodigo(), aeropuerto);
+            mapaAeropuertos.put(aeropuerto.getCodigoIATA(), aeropuerto);
         }
     }
 

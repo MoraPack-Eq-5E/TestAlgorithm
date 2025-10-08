@@ -93,7 +93,7 @@ public class LectorVuelos {
     private Map<String, Aeropuerto> crearMapaAeropuertos() {
         Map<String, Aeropuerto> mapa = new HashMap<>();
         for (Aeropuerto aeropuerto : aeropuertos) {
-            mapa.put(aeropuerto.getCodigo(), aeropuerto);
+            mapa.put(aeropuerto.getCodigoIATA(), aeropuerto);
         }
         return mapa;
     }

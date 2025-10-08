@@ -6,9 +6,13 @@ import com.grupo5e.morapack.core.model.Vuelo;
 import com.grupo5e.morapack.core.model.Paquete;
 import com.grupo5e.morapack.core.model.Producto;
 import com.grupo5e.morapack.core.constants.Constantes;
+import com.grupo5e.morapack.core.service.ServicioDisponibilidadVuelos;
+import com.grupo5e.morapack.core.index.IndiceVuelos;
+import com.grupo5e.morapack.core.index.CacheDisponibilidad;
 import com.grupo5e.morapack.utils.LectorAeropuerto;
 import com.grupo5e.morapack.utils.LectorVuelos;
 import com.grupo5e.morapack.utils.LectorProductos;
+import com.grupo5e.morapack.utils.LectorCancelaciones;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -74,6 +78,13 @@ public class ALNSSolver {
     private int iteracionesDesdeMejoraSignificativa;
     private int contadorRestarts;
     private double ultimoPesoSignificativo;
+    
+    // Servicio de disponibilidad de vuelos (cancelaciones)
+    private ServicioDisponibilidadVuelos servicioDisponibilidad;
+    
+    // Optimizaciones de rendimiento
+    private IndiceVuelos indiceVuelos;
+    private CacheDisponibilidad cacheDisponibilidad;
 
     // Horizon days
     private static final int HORIZON_DAYS = 4;
@@ -112,6 +123,12 @@ public class ALNSSolver {
 
         inicializarOcupacionAlmacenes();
         inicializarOcupacionTemporalAlmacenes();
+        
+        // Inicializar servicio de cancelaciones
+        inicializarServicioDisponibilidad();
+        
+        // Inicializar optimizaciones de rendimiento
+        inicializarOptimizaciones();
     }
 
     private void inicializarParametrosALNS() {
@@ -146,6 +163,82 @@ public class ALNSSolver {
         this.iteracionesDesdeMejoraSignificativa = 0;
         this.contadorRestarts = 0;
         this.ultimoPesoSignificativo = 0.0;
+    }
+    
+    /**
+     * Inicializa el servicio de disponibilidad de vuelos y carga cancelaciones.
+     * Maneja errores gracefully para no interrumpir el flujo si falta el archivo.
+     */
+    private void inicializarServicioDisponibilidad() {
+        this.servicioDisponibilidad = new ServicioDisponibilidadVuelos();
+        
+        try {
+            LectorCancelaciones lectorCancelaciones = new LectorCancelaciones(
+                Constantes.RUTA_ARCHIVO_CANCELACIONES
+            );
+            servicioDisponibilidad.cargarCancelaciones(lectorCancelaciones);
+            
+            int totalCancelaciones = servicioDisponibilidad.getTotalCancelaciones();
+            int vuelosAfectados = servicioDisponibilidad.getVuelosAfectados();
+            
+            System.out.println("\n=== CANCELACIONES DE VUELOS ===");
+            System.out.println("Vuelos únicos afectados: " + vuelosAfectados);
+            System.out.println("Total de cancelaciones (día×vuelo): " + totalCancelaciones);
+            System.out.println("================================\n");
+            
+        } catch (Exception e) {
+            System.err.println("Advertencia: No se pudieron cargar cancelaciones de vuelos");
+            System.err.println("Archivo: " + Constantes.RUTA_ARCHIVO_CANCELACIONES);
+            System.err.println("El algoritmo continuará sin considerar cancelaciones.");
+            // No es crítico, continuar sin cancelaciones
+        }
+    }
+    
+    /**
+     * Inicializa las estructuras de optimización de rendimiento.
+     * Construye índices y caches para búsquedas eficientes.
+     */
+    private void inicializarOptimizaciones() {
+        System.out.println("\n=== INICIALIZANDO OPTIMIZACIONES ===");
+        long inicioIndices = System.currentTimeMillis();
+        
+        // Construir índice de vuelos
+        this.indiceVuelos = new IndiceVuelos(this.vuelos);
+        
+        // Construir cache de disponibilidad
+        this.cacheDisponibilidad = new CacheDisponibilidad(servicioDisponibilidad, indiceVuelos);
+        
+        long finIndices = System.currentTimeMillis();
+        long tiempoIndices = finIndices - inicioIndices;
+        
+        System.out.println("Índices construidos en " + tiempoIndices + "ms");
+        indiceVuelos.imprimirEstadisticas();
+        System.out.println("=====================================\n");
+    }
+    
+    /**
+     * Calcula el día de operación para un paquete basado en su fecha de pedido.
+     * El día es relativo a T0 (día inicial del horizonte de planificación).
+     * 
+     * @param paquete Paquete para calcular su día de operación
+     * @return Día de operación (1-based), donde 1 es el primer día del horizonte
+     */
+    private int calcularDiaOperacion(Paquete paquete) {
+        if (paquete == null || paquete.getFechaPedido() == null || T0 == null) {
+            return 1; // Default: día 1 si no hay información temporal
+        }
+        
+        long minutosDesdeT0 = ChronoUnit.MINUTES.between(T0, paquete.getFechaPedido());
+        
+        // Convertir minutos a días (1-based)
+        int dia = (int) (minutosDesdeT0 / (24 * 60)) + 1;
+        
+        // Clamp al rango válido [1, HORIZON_DAYS * 30]
+        // Asumiendo horizonte de planificación de 30 días por defecto
+        int maxDias = HORIZON_DAYS * 30;
+        dia = Math.max(1, Math.min(dia, maxDias));
+        
+        return dia;
     }
 
     public void resolver() {
@@ -941,7 +1034,16 @@ public class ALNSSolver {
         return cacheNombreCiudadAeropuerto.get(claveCiudad);
     }
 
-    private ArrayList<Vuelo> encontrarRutaDirecta(Ciudad origen, Ciudad destino) {
+    /**
+     * Encuentra una ruta directa entre dos ciudades, considerando disponibilidad por día.
+     * OPTIMIZADO: Usa índice y cache de disponibilidad (O(1) en lugar de O(N))
+     * 
+     * @param origen Ciudad de origen
+     * @param destino Ciudad de destino
+     * @param dia Día de operación para verificar disponibilidad de vuelo
+     * @return Ruta directa si existe y está disponible, null en caso contrario
+     */
+    private ArrayList<Vuelo> encontrarRutaDirecta(Ciudad origen, Ciudad destino, int dia) {
         if (origen == null || destino == null) return null;
 
         Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
@@ -949,16 +1051,21 @@ public class ALNSSolver {
 
         if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
 
-        for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().equals(aeropuertoOrigen) &&
-                vuelo.getAeropuertoDestino().equals(aeropuertoDestino)) {
-                ArrayList<Vuelo> ruta = new ArrayList<>();
-                ruta.add(vuelo);
-                return ruta;
-            }
+        // OPTIMIZACIÓN: Usar cache de disponibilidad en lugar de búsqueda lineal
+        List<Vuelo> vuelosDisponibles = cacheDisponibilidad.obtenerVuelosDisponibles(
+            aeropuertoOrigen,
+            aeropuertoDestino,
+            dia
+        );
+
+        if (vuelosDisponibles.isEmpty()) {
+            return null; // No hay vuelos directos disponibles en este día
         }
 
-        return null;
+        // Tomar el primer vuelo disponible
+        ArrayList<Vuelo> ruta = new ArrayList<>();
+        ruta.add(vuelosDisponibles.get(0));
+        return ruta;
     }
 
     private boolean esRutaValida(Paquete paquete, ArrayList<Vuelo> ruta) {
@@ -1232,6 +1339,13 @@ public class ALNSSolver {
 }
 
 
+    /**
+     * Genera una ruta aleatoria para un paquete, considerando disponibilidad.
+     * Usado en la generación de solución inicial aleatoria.
+     * 
+     * @param paquete Paquete para el cual generar ruta
+     * @return Ruta aleatoria disponible, o null si no se encuentra ninguna
+     */
     private ArrayList<Vuelo> generarRutaAleatoria(Paquete paquete) {
         Ciudad origen = paquete.getUbicacionActual();
         Ciudad destino = paquete.getCiudadDestino();
@@ -1243,11 +1357,16 @@ public class ALNSSolver {
 
         if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
 
-        ArrayList<Vuelo> rutaDirecta = encontrarRutaDirecta(origen, destino);
+        // Calcular día de operación
+        int dia = calcularDiaOperacion(paquete);
+
+        // Intentar ruta directa primero
+        ArrayList<Vuelo> rutaDirecta = encontrarRutaDirecta(origen, destino, dia);
         if (rutaDirecta != null && !rutaDirecta.isEmpty()) {
             return rutaDirecta;
         }
 
+        // Intentar con aeropuertos intermedios
         ArrayList<Aeropuerto> aeropuertosBarajados = new ArrayList<>(aeropuertos);
         Collections.shuffle(aeropuertosBarajados, aleatorio);
 
@@ -1255,8 +1374,8 @@ public class ALNSSolver {
             Aeropuerto intermedio = aeropuertosBarajados.get(i);
             if (intermedio.equals(aeropuertoOrigen) || intermedio.equals(aeropuertoDestino)) continue;
 
-            ArrayList<Vuelo> tramo1 = encontrarRutaDirecta(origen, intermedio.getCiudad());
-            ArrayList<Vuelo> tramo2 = encontrarRutaDirecta(intermedio.getCiudad(), destino);
+            ArrayList<Vuelo> tramo1 = encontrarRutaDirecta(origen, intermedio.getCiudad(), dia);
+            ArrayList<Vuelo> tramo2 = encontrarRutaDirecta(intermedio.getCiudad(), destino, dia);
 
             if (tramo1 != null && tramo2 != null && !tramo1.isEmpty() && !tramo2.isEmpty()) {
                 ArrayList<Vuelo> ruta = new ArrayList<>();
@@ -1266,7 +1385,7 @@ public class ALNSSolver {
             }
         }
 
-        return null;
+        return null; // No hay rutas disponibles en este día
     }
 
     private ArrayList<Vuelo> encontrarMejorRutaConVentanasTiempo(Paquete paquete, HashMap<Paquete, ArrayList<Vuelo>> solucionActual) {
@@ -1309,6 +1428,13 @@ public class ALNSSolver {
         return retrasado;
     }
 
+    /**
+     * Encuentra la mejor ruta para un paquete considerando disponibilidad de vuelos.
+     * Intenta rutas directas primero, luego con 1 escala, y finalmente con 2 escalas.
+     * 
+     * @param paquete Paquete para el cual buscar ruta
+     * @return Mejor ruta encontrada, o null si no hay rutas disponibles
+     */
     private ArrayList<Vuelo> encontrarMejorRuta(Paquete paquete) {
         Ciudad origen = paquete.getUbicacionActual();
         Ciudad destino = paquete.getCiudadDestino();
@@ -1317,28 +1443,41 @@ public class ALNSSolver {
             return new ArrayList<>();
         }
 
+        // Calcular día de operación para verificar disponibilidad
+        int dia = calcularDiaOperacion(paquete);
+
         ArrayList<ArrayList<Vuelo>> rutasValidas = new ArrayList<>();
         ArrayList<Double> puntajesRuta = new ArrayList<>();
 
-        ArrayList<Vuelo> directa = encontrarRutaDirecta(origen, destino);
+        // Intentar ruta directa con verificación de disponibilidad
+        ArrayList<Vuelo> directa = encontrarRutaDirecta(origen, destino, dia);
         if (directa != null && esRutaValida(paquete, directa)) {
             rutasValidas.add(directa);
             puntajesRuta.add(calcularMargenTiempoRuta(paquete, directa));
         }
 
-        ArrayList<Vuelo> unaEscala = encontrarRutaUnaEscala(origen, destino);
+        // Intentar ruta con una escala
+        ArrayList<Vuelo> unaEscala = encontrarRutaUnaEscala(origen, destino, dia);
         if (unaEscala != null && esRutaValida(paquete, unaEscala)) {
             rutasValidas.add(unaEscala);
             puntajesRuta.add(calcularMargenTiempoRuta(paquete, unaEscala));
         }
 
-        ArrayList<Vuelo> dosEscalas = encontrarRutaDosEscalas(origen, destino);
+        // Intentar ruta con dos escalas
+        ArrayList<Vuelo> dosEscalas = encontrarRutaDosEscalas(origen, destino, dia);
         if (dosEscalas != null && esRutaValida(paquete, dosEscalas)) {
             rutasValidas.add(dosEscalas);
             puntajesRuta.add(calcularMargenTiempoRuta(paquete, dosEscalas));
         }
 
-        if (rutasValidas.isEmpty()) return null;
+        if (rutasValidas.isEmpty()) {
+            // No hay rutas disponibles en este día (posiblemente por cancelaciones)
+            if (Constantes.LOGGING_VERBOSO) {
+                System.out.println("No se encontraron rutas disponibles para paquete " + paquete.getId() + 
+                                 " en día " + dia + " (cancelaciones activas)");
+            }
+            return null;
+        }
 
         int total = rutasValidas.size();
         int indiceSeleccionado;
@@ -1366,80 +1505,148 @@ public class ALNSSolver {
         return rutasValidas.get(indiceSeleccionado);
     }
 
-    private ArrayList<Vuelo> encontrarRutaUnaEscala(Ciudad origen, Ciudad destino) {
+    /**
+     * Encuentra una ruta con una escala entre dos ciudades, considerando disponibilidad.
+     * OPTIMIZADO: Usa índice de vuelos salientes en lugar de búsqueda lineal
+     * 
+     * @param origen Ciudad de origen
+     * @param destino Ciudad de destino
+     * @param dia Día de operación para verificar disponibilidad
+     * @return Ruta con una escala si existe y está disponible, null en caso contrario
+     */
+    private ArrayList<Vuelo> encontrarRutaUnaEscala(Ciudad origen, Ciudad destino, int dia) {
         Aeropuerto aOrigen = obtenerAeropuertoPorCiudad(origen);
         Aeropuerto aDestino = obtenerAeropuertoPorCiudad(destino);
         if (aOrigen == null || aDestino == null) return null;
 
+        // OPTIMIZACIÓN: Obtener aeropuertos intermedios viables desde el índice
+        List<Vuelo> vuelosSalidaOrigen = indiceVuelos.obtenerVuelosSalientes(aOrigen);
+        
+        // Generar lista de aeropuertos intermedios únicos
         ArrayList<Aeropuerto> posibles = new ArrayList<>();
-        for (Aeropuerto a : aeropuertos) {
-            if (!a.equals(aOrigen) && !a.equals(aDestino)) posibles.add(a);
+        for (Vuelo v : vuelosSalidaOrigen) {
+            Aeropuerto destVuelo = v.getAeropuertoDestino();
+            if (!destVuelo.equals(aDestino) && !posibles.contains(destVuelo)) {
+                posibles.add(destVuelo);
+            }
         }
         Collections.shuffle(posibles, aleatorio);
 
+        // Buscar conexión viable usando cache de disponibilidad
         for (Aeropuerto escala : posibles) {
+            List<Vuelo> primerTramo = cacheDisponibilidad.obtenerVuelosDisponibles(aOrigen, escala, dia);
+            if (primerTramo.isEmpty()) continue;
+            
+            // Buscar vuelo con capacidad disponible
             Vuelo primero = null;
-            for (Vuelo v : vuelos) {
-                if (v.getAeropuertoOrigen().equals(aOrigen) &&
-                    v.getAeropuertoDestino().equals(escala) &&
-                    v.getCapacidadUsada() < v.getCapacidadMaxima()) {
-                    primero = v; break;
+            for (Vuelo v : primerTramo) {
+                if (v.getCapacidadUsada() < v.getCapacidadMaxima()) {
+                    primero = v;
+                    break;
                 }
             }
             if (primero == null) continue;
+
+            List<Vuelo> segundoTramo = cacheDisponibilidad.obtenerVuelosDisponibles(escala, aDestino, dia);
+            if (segundoTramo.isEmpty()) continue;
+            
+            // Buscar vuelo con capacidad disponible
             Vuelo segundo = null;
-            for (Vuelo v : vuelos) {
-                if (v.getAeropuertoOrigen().equals(escala) &&
-                    v.getAeropuertoDestino().equals(aDestino) &&
-                    v.getCapacidadUsada() < v.getCapacidadMaxima()) {
-                    segundo = v; break;
+            for (Vuelo v : segundoTramo) {
+                if (v.getCapacidadUsada() < v.getCapacidadMaxima()) {
+                    segundo = v;
+                    break;
                 }
             }
+            
             if (segundo != null) {
                 ArrayList<Vuelo> ruta = new ArrayList<>();
-                ruta.add(primero); ruta.add(segundo);
+                ruta.add(primero); 
+                ruta.add(segundo);
                 return ruta;
             }
         }
-        return null;
+        return null; // No hay rutas con una escala disponibles en este día
     }
 
-    private ArrayList<Vuelo> encontrarRutaDosEscalas(Ciudad origen, Ciudad destino) {
+    /**
+     * Encuentra una ruta con dos escalas entre dos ciudades, considerando disponibilidad.
+     * OPTIMIZADO: Usa cache de disponibilidad en lugar de verificación directa
+     * 
+     * @param origen Ciudad de origen
+     * @param destino Ciudad de destino
+     * @param dia Día de operación para verificar disponibilidad
+     * @return Ruta con dos escalas si existe y está disponible, null en caso contrario
+     */
+    private ArrayList<Vuelo> encontrarRutaDosEscalas(Ciudad origen, Ciudad destino, int dia) {
         Aeropuerto aOrigen = obtenerAeropuertoPorCiudad(origen);
         Aeropuerto aDestino = obtenerAeropuertoPorCiudad(destino);
         if (aOrigen == null || aDestino == null) return null;
 
+        // OPTIMIZACIÓN: Obtener aeropuertos alcanzables desde origen
+        List<Vuelo> vuelosSalidaOrigen = indiceVuelos.obtenerVuelosSalientes(aOrigen);
         ArrayList<Aeropuerto> primeras = new ArrayList<>();
-        for (Aeropuerto a : aeropuertos) {
-            if (!a.equals(aOrigen) && !a.equals(aDestino)) primeras.add(a);
+        for (Vuelo v : vuelosSalidaOrigen) {
+            Aeropuerto destVuelo = v.getAeropuertoDestino();
+            if (!destVuelo.equals(aDestino) && !primeras.contains(destVuelo)) {
+                primeras.add(destVuelo);
+            }
         }
         Collections.shuffle(primeras, aleatorio);
         int maxPrimeras = Math.min(10, primeras.size());
 
         for (int i = 0; i < maxPrimeras; i++) {
             Aeropuerto p1 = primeras.get(i);
+            
+            // OPTIMIZACIÓN: Obtener aeropuertos alcanzables desde p1
+            List<Vuelo> vuelosSalidaP1 = indiceVuelos.obtenerVuelosSalientes(p1);
             ArrayList<Aeropuerto> segundas = new ArrayList<>();
-            for (Aeropuerto a : aeropuertos) {
-                if (!a.equals(aOrigen) && !a.equals(aDestino) && !a.equals(p1)) segundas.add(a);
+            for (Vuelo v : vuelosSalidaP1) {
+                Aeropuerto destVuelo = v.getAeropuertoDestino();
+                if (!destVuelo.equals(aOrigen) && !destVuelo.equals(aDestino) && 
+                    !destVuelo.equals(p1) && !segundas.contains(destVuelo)) {
+                    segundas.add(destVuelo);
+                }
             }
             Collections.shuffle(segundas, aleatorio);
             int maxSeg = Math.min(10, segundas.size());
+            
             for (int j = 0; j < maxSeg; j++) {
                 Aeropuerto p2 = segundas.get(j);
+                
+                // Buscar vuelos usando cache de disponibilidad
+                List<Vuelo> primerTramo = cacheDisponibilidad.obtenerVuelosDisponibles(aOrigen, p1, dia);
+                if (primerTramo.isEmpty()) continue;
+                
                 Vuelo f1 = null;
-                for (Vuelo v : vuelos) {
-                    if (v.getAeropuertoOrigen().equals(aOrigen) && v.getAeropuertoDestino().equals(p1) && v.getCapacidadUsada() < v.getCapacidadMaxima()) { f1 = v; break; }
+                for (Vuelo v : primerTramo) {
+                    if (v.getCapacidadUsada() < v.getCapacidadMaxima()) {
+                        f1 = v; break;
+                    }
                 }
                 if (f1 == null) continue;
+                
+                List<Vuelo> segundoTramo = cacheDisponibilidad.obtenerVuelosDisponibles(p1, p2, dia);
+                if (segundoTramo.isEmpty()) continue;
+                
                 Vuelo f2 = null;
-                for (Vuelo v : vuelos) {
-                    if (v.getAeropuertoOrigen().equals(p1) && v.getAeropuertoDestino().equals(p2) && v.getCapacidadUsada() < v.getCapacidadMaxima()) { f2 = v; break; }
+                for (Vuelo v : segundoTramo) {
+                    if (v.getCapacidadUsada() < v.getCapacidadMaxima()) {
+                        f2 = v; break;
+                    }
                 }
                 if (f2 == null) continue;
+                
+                List<Vuelo> tercerTramo = cacheDisponibilidad.obtenerVuelosDisponibles(p2, aDestino, dia);
+                if (tercerTramo.isEmpty()) continue;
+                
                 Vuelo f3 = null;
-                for (Vuelo v : vuelos) {
-                    if (v.getAeropuertoOrigen().equals(p2) && v.getAeropuertoDestino().equals(aDestino) && v.getCapacidadUsada() < v.getCapacidadMaxima()) { f3 = v; break; }
+                for (Vuelo v : tercerTramo) {
+                    if (v.getCapacidadUsada() < v.getCapacidadMaxima()) {
+                        f3 = v; break;
+                    }
                 }
+                
                 if (f3 != null) {
                     ArrayList<Vuelo> ruta = new ArrayList<>();
                     ruta.add(f1); ruta.add(f2); ruta.add(f3);
@@ -1450,7 +1657,7 @@ public class ALNSSolver {
                 }
             }
         }
-        return null;
+        return null; // No hay rutas con dos escalas disponibles en este día
     }
 
     private boolean seRespetaDeadline(Paquete paquete, ArrayList<Vuelo> ruta) {

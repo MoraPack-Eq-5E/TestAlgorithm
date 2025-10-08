@@ -23,6 +23,9 @@ public class CacheDisponibilidad {
     // Cache: día → (clave_ruta → vuelos disponibles)
     private final Map<Integer, Map<String, List<Vuelo>>> cachePorDia;
     
+    // Límite de días en cache (para evitar consumo excesivo de memoria)
+    private static final int MAX_DIAS_EN_CACHE = 30;
+    
     // Estadísticas de cache
     private int hits = 0;
     private int misses = 0;
@@ -46,9 +49,14 @@ public class CacheDisponibilidad {
      * @param origen Aeropuerto de origen
      * @param destino Aeropuerto de destino
      * @param dia Día de operación (1-based)
-     * @return Lista de vuelos disponibles (filtrados por cancelaciones)
+     * @return Lista INMUTABLE de vuelos disponibles (filtrados por cancelaciones)
      */
     public List<Vuelo> obtenerVuelosDisponibles(Aeropuerto origen, Aeropuerto destino, int dia) {
+        // Validar día
+        if (dia < 1) {
+            return List.of(); // Día inválido
+        }
+        
         // Generar clave de ruta
         String claveRuta = generarClaveRuta(origen, destino);
         if (claveRuta == null) {
@@ -61,7 +69,8 @@ public class CacheDisponibilidad {
             List<Vuelo> cached = cacheDia.get(claveRuta);
             if (cached != null) {
                 hits++;
-                return cached; // Cache hit
+                // CRÍTICO: Retornar copia inmutable para proteger el cache
+                return List.copyOf(cached); // Cache hit
             }
         }
         
@@ -76,7 +85,8 @@ public class CacheDisponibilidad {
         cachePorDia.computeIfAbsent(dia, k -> new HashMap<>())
                    .put(claveRuta, disponibles);
         
-        return disponibles;
+        // CRÍTICO: Retornar copia inmutable para proteger el cache
+        return List.copyOf(disponibles);
     }
     
     /**
@@ -87,6 +97,20 @@ public class CacheDisponibilidad {
      */
     public void limpiarDiasAnteriores(int diaActual) {
         cachePorDia.keySet().removeIf(dia -> dia < diaActual);
+    }
+    
+    /**
+     * Limpia el cache cuando excede el límite de días permitidos.
+     * Elimina los días más antiguos para mantener el cache acotado.
+     * 
+     * @param diaActual Día actual de operación
+     */
+    public void aplicarLimiteCache(int diaActual) {
+        if (cachePorDia.size() > MAX_DIAS_EN_CACHE) {
+            // Eliminar días más antiguos que (diaActual - MAX_DIAS_EN_CACHE)
+            int diaMinimo = diaActual - MAX_DIAS_EN_CACHE;
+            cachePorDia.keySet().removeIf(dia -> dia < diaMinimo);
+        }
     }
     
     /**

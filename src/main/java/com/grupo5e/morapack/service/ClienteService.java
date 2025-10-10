@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface ClienteService {
     List<Cliente> listar();
     Long insertar(Cliente cliente);
+    Cliente  buscarPorId(Long idCliente);
     Optional<Cliente> findByNumeroDocumento(String numeroDocumento);
     void eliminar(Long id);
 }

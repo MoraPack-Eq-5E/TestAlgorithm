@@ -24,7 +24,7 @@ public class AeropuertoServiceTest {
 
         // Crear aeropuerto
         Aeropuerto aeropuerto = new Aeropuerto();
-        aeropuerto.setCodigo("SPIM");
+        aeropuerto.setCodigoIATA("SPIM");
         aeropuerto.setZonaHorariaUTC(-5);
         aeropuerto.setLatitud("-12.0219");
         aeropuerto.setLongitud("-77.1143");

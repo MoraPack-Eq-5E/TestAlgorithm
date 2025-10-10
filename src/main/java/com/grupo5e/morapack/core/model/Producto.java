@@ -18,10 +18,10 @@ public class Producto {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Relación: muchos productos pertenecen a un paquete
+    // Relación: muchos productos pertenecen a un pedido
     @ManyToOne
     @JoinColumn(name = "paquete_id", nullable = false)
-    private Paquete paquete;
+    private Pedido pedido;
 
     private String vueloAsignado;
 

@@ -2,29 +2,25 @@ package com.grupo5e.morapack;
 
 import com.grupo5e.morapack.core.model.Vuelo;
 import com.grupo5e.morapack.repository.VueloRepository;
-import com.grupo5e.morapack.utils.VueloDataLoader;
+import com.grupo5e.morapack.utils.LecturaVuelos;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @SpringBootTest
-@Transactional // evita que los datos queden persistidos tras el test
-class VueloDataLoaderTest {
-
-    @Autowired
-    private VueloDataLoader vueloDataLoader;
-
+public class LecturaVuelosTest {
     @Autowired
     private VueloRepository vueloRepository;
 
     @Test
     void testCargaVuelosDesdeArchivo() {
         // Ejecutar la carga
-        vueloDataLoader.cargarVuelos();
+        LecturaVuelos lecturaVuelos = new LecturaVuelos();
+
+        lecturaVuelos.cargarVuelos();
 
         // Verificar que se insertaron vuelos
         List<Vuelo> vuelos = vueloRepository.findAll();

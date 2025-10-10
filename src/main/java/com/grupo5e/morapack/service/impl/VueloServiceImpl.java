@@ -3,9 +3,11 @@ package com.grupo5e.morapack.service.impl;
 import com.grupo5e.morapack.core.model.Vuelo;
 import com.grupo5e.morapack.repository.VueloRepository;
 import com.grupo5e.morapack.service.VueloService;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Service
 public class VueloServiceImpl implements VueloService {
 
     private final VueloRepository vueloRepository;

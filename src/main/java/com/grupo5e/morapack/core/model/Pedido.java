@@ -10,27 +10,27 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "paquetes")
-public class Paquete {
+@Table(name = "pedidos")
+public class Pedido {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Relación: muchos paquetes pertenecen a un cliente
+    // Relación: muchos pedidos pertenecen a un cliente
     @ManyToOne
     @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
-    // Ciudad destino
-    @ManyToOne
-    @JoinColumn(name = "ciudad_destino_id", nullable = false)
-    private Ciudad ciudadDestino;
+    // Aeropuerto destino
+    @JoinColumn(name = "aeropuerto_destino_codigo", nullable = false)
+    private String aeropuertoDestinoCodigo;
 
     private LocalDateTime fechaPedido;
     private LocalDateTime fechaLimiteEntrega;
@@ -38,10 +38,9 @@ public class Paquete {
     @Enumerated(EnumType.STRING)
     private EstadoPaquete estado;
 
-    // Ciudad donde se encuentra actualmente
-    @ManyToOne
-    @JoinColumn(name = "ubicacion_actual_id")
-    private Ciudad ubicacionActual;
+    // Aeropuerto donde se encuentra actualmente
+    @JoinColumn(name = "aeropuerto_origen_codigo")
+    private String aeropuertoOrigenCodigo;
 
     // Relación con Ruta (opcional si ya tienes la clase)
     @ManyToOne
@@ -51,6 +50,6 @@ public class Paquete {
     private double prioridad;
 
     // Relación: un paquete puede contener varios productos
-    @OneToMany(mappedBy = "paquete", cascade = CascadeType.ALL, orphanRemoval = true)
-    private ArrayList<Producto> productos;
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<Producto> productos;
 }

@@ -40,7 +40,7 @@ public class Ruta {
     private double tiempoTotal;
     private double costoTotal;
 
-    // Relación: muchos paquetes pueden usar una misma ruta
+    // Relación: muchos pedidos pueden usar una misma ruta
     @OneToMany(mappedBy = "rutaAsignada")
-    private List<Paquete> paquetes;
+    private List<Pedido> pedidos;
 }

@@ -1,9 +1,9 @@
 package com.grupo5e.morapack.repository;
 
-import com.grupo5e.morapack.core.model.Vuelo;
+import com.grupo5e.morapack.core.model.Pedido;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface VueloRepository extends JpaRepository<Vuelo, Long> {
+public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 }

@@ -26,6 +26,11 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    public Cliente buscarPorId(Long idCliente) {
+        return  clienteRepository.findById(idCliente).orElse(null);
+    }
+
+    @Override
     public Optional<Cliente> findByNumeroDocumento(String numeroDocumento) {
         // 1. Recuperar todos los clientes
         List<Cliente> clientes = clienteRepository.findAll();

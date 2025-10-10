@@ -5,24 +5,18 @@ import com.grupo5e.morapack.core.model.Aeropuerto;
 import com.grupo5e.morapack.core.model.Vuelo;
 import com.grupo5e.morapack.repository.AeropuertoRepository;
 import com.grupo5e.morapack.repository.VueloRepository;
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.sql.Time;
 
-@Component
-@RequiredArgsConstructor
-public class VueloDataLoader {
+public class LecturaVuelos {
 
-    private final AeropuertoRepository aeropuertoRepository;
-    private final VueloRepository vueloRepository;
+    private AeropuertoRepository aeropuertoRepository;
+    private VueloRepository vueloRepository;
 
     private static final String RUTA_ARCHIVO = "src/main/java/com/grupo5e/morapack/utils/planes_vuelo.txt";
 
-    @PostConstruct
     public void cargarVuelos() {
         System.out.println("=== Iniciando carga de vuelos ===");
         try (BufferedReader br = new BufferedReader(new FileReader(RUTA_ARCHIVO))) {
@@ -43,17 +37,17 @@ public class VueloDataLoader {
                 Time horaLlegada = Time.valueOf(partes[3] + ":00".substring(Math.max(0, 5 - partes[3].length())));
                 int capacidad = Integer.parseInt(partes[4].trim());
 
-                Aeropuerto origen = aeropuertoRepository.findByCodigo(codigoOrigen)
+                Aeropuerto origen = aeropuertoRepository.findByCodigoIATA(codigoOrigen)
                         .orElseThrow(() -> new RuntimeException("Aeropuerto origen no encontrado: " + codigoOrigen));
 
-                Aeropuerto destino = aeropuertoRepository.findByCodigo(codigoDestino)
+                Aeropuerto destino = aeropuertoRepository.findByCodigoIATA(codigoDestino)
                         .orElseThrow(() -> new RuntimeException("Aeropuerto destino no encontrado: " + codigoDestino));
 
                 Vuelo vuelo = new Vuelo();
                 vuelo.setAeropuertoOrigen(origen);
                 vuelo.setAeropuertoDestino(destino);
-                vuelo.setHoraSalida(horaSalida);
-                vuelo.setHoraLlegada(horaLlegada);
+                vuelo.setHoraSalida(horaSalida.toLocalTime());
+                vuelo.setHoraLlegada(horaLlegada.toLocalTime());
                 vuelo.setCapacidadMaxima(capacidad);
                 vuelo.setCapacidadUsada(0);
                 vuelo.setFrecuenciaPorDia(1);

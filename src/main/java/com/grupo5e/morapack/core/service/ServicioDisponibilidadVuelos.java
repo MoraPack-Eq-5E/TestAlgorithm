@@ -1,124 +1,121 @@
 package com.grupo5e.morapack.core.service;
 
+import com.grupo5e.morapack.core.model.Cancelacion;
 import com.grupo5e.morapack.core.model.Vuelo;
 import com.grupo5e.morapack.utils.LectorCancelaciones;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Servicio que gestiona la disponibilidad de vuelos considerando cancelaciones.
- * Responsabilidad única: determinar si un vuelo está disponible en un día específico.
- * 
- * Patrón: Service Layer + Single Responsibility Principle
+ *
+ * Responsabilidad: determinar si un vuelo está disponible en un día específico.
+ *
+ * Adaptado para usar la clase Cancelacion en lugar de Map<String, Set<Integer>>.
  */
 public class ServicioDisponibilidadVuelos {
-    
-    // Mapa: identificadorVuelo → Set de días cancelados
-    private final Map<String, Set<Integer>> cancelacionesPorVuelo;
-    
+
+    // Lista total de cancelaciones registradas (día × vuelo)
+    private final List<Cancelacion> cancelaciones;
+
     public ServicioDisponibilidadVuelos() {
-        this.cancelacionesPorVuelo = new HashMap<>();
+        this.cancelaciones = new ArrayList<>();
     }
-    
+
     /**
-     * Registra una cancelación de vuelo para un día específico.
-     * 
-     * @param identificadorVuelo Identificador único del vuelo (formato: "ORIGEN-DESTINO-HH:MM")
-     * @param dia Día de la cancelación (1-based)
+     * Registra una cancelación de vuelo.
+     *
+     * @param cancelacion Objeto con información del vuelo cancelado.
      */
-    public void registrarCancelacion(String identificadorVuelo, int dia) {
-        if (identificadorVuelo == null || identificadorVuelo.trim().isEmpty()) {
-            return;
-        }
-        
-        cancelacionesPorVuelo
-            .computeIfAbsent(identificadorVuelo, k -> new HashSet<>())
-            .add(dia);
+    public void registrarCancelacion(Cancelacion cancelacion) {
+        if (cancelacion == null) return;
+        this.cancelaciones.add(cancelacion);
     }
-    
+
     /**
-     * Verifica si un vuelo está disponible en un día específico.
-     * 
-     * @param vuelo Vuelo a verificar
-     * @param dia Día a consultar (1-based)
-     * @return true si el vuelo está disponible, false si está cancelado
-     */
-    public boolean estaDisponible(Vuelo vuelo, int dia) {
-        if (vuelo == null) {
-            return false;
-        }
-        
-        String identificador = vuelo.getIdentificadorVuelo();
-        if (identificador == null) {
-            // Si no tiene identificador, asumimos que está disponible
-            // (compatibilidad con vuelos antiguos sin horarios)
-            return true;
-        }
-        
-        Set<Integer> diasCancelados = cancelacionesPorVuelo.get(identificador);
-        if (diasCancelados == null) {
-            return true; // No hay cancelaciones registradas para este vuelo
-        }
-        
-        return !diasCancelados.contains(dia);
-    }
-    
-    /**
-     * Carga cancelaciones desde un lector.
-     * 
-     * @param lector Lector de cancelaciones configurado
+     * Carga cancelaciones desde un lector de archivo.
+     *
+     * @param lector Lector de cancelaciones configurado.
      */
     public void cargarCancelaciones(LectorCancelaciones lector) {
-        Map<String, Set<Integer>> cancelaciones = lector.leerCancelaciones();
-        cancelacionesPorVuelo.putAll(cancelaciones);
+        List<Cancelacion> leidas = lector.leerCancelaciones();
+        this.cancelaciones.addAll(leidas);
+        System.out.println("✅ Cancelaciones cargadas: " + leidas.size());
     }
-    
+
     /**
-     * Obtiene el número total de cancelaciones registradas.
-     * Útil para estadísticas y debugging.
-     * 
-     * @return Número total de instancias de cancelación (día × vuelo)
+     * Verifica si un vuelo está disponible en un día específico.
+     *
+     * @param vuelo Vuelo a verificar.
+     * @param dia   Día a consultar (1-based).
+     * @return true si el vuelo está disponible, false si está cancelado.
+     */
+    public boolean estaDisponible(Vuelo vuelo, int dia) {
+        if (vuelo == null) return false;
+
+        // Buscar cancelaciones que coincidan con el vuelo y día
+        return cancelaciones.stream()
+                .noneMatch(c ->
+                        c.getCodigoIATAOrigen().equalsIgnoreCase(vuelo.getAeropuertoOrigen().getCodigoIATA())
+                                && c.getCodigoIATADestino().equalsIgnoreCase(vuelo.getAeropuertoDestino().getCodigoIATA())
+                                && c.getHora() ==  vuelo.getHoraSalida().getHour()
+                                && c.getMinuto() == vuelo.getHoraSalida().getMinute()
+                                && c.getDiasCancelado() == dia
+                );
+    }
+
+    /**
+     * Obtiene los días en que un vuelo está cancelado.
+     *
+     * @param vuelo Vuelo a consultar.
+     * @return Set de días cancelados (vacío si no hay cancelaciones).
+     */
+    public Set<Integer> obtenerDiasCancelados(Vuelo vuelo) {
+        if (vuelo == null) return Set.of();
+
+        return cancelaciones.stream()
+                .filter(c ->
+                        c.getCodigoIATAOrigen().equalsIgnoreCase(vuelo.getAeropuertoOrigen().getCodigoIATA())
+                                && c.getCodigoIATADestino().equalsIgnoreCase(vuelo.getAeropuertoDestino().getCodigoIATA())
+                                && c.getHora() == vuelo.getHoraSalida().getHour()
+                                && c.getMinuto() == vuelo.getHoraSalida().getMinute()
+                )
+                .map(Cancelacion::getDiasCancelado)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Verifica si un vuelo tiene al menos una cancelación registrada.
+     *
+     * @param vuelo Vuelo a consultar.
+     * @return true si tiene cancelaciones, false en caso contrario.
+     */
+    public boolean tieneCancelaciones(Vuelo vuelo) {
+        return !obtenerDiasCancelados(vuelo).isEmpty();
+    }
+
+    /**
+     * Obtiene el número total de instancias de cancelación (día × vuelo).
      */
     public int getTotalCancelaciones() {
-        return cancelacionesPorVuelo.values().stream()
-            .mapToInt(Set::size)
-            .sum();
+        return cancelaciones.size();
     }
-    
+
     /**
      * Obtiene el número de vuelos únicos con al menos una cancelación.
-     * 
-     * @return Número de vuelos afectados por cancelaciones
      */
     public int getVuelosAfectados() {
-        return cancelacionesPorVuelo.size();
+        return (int) cancelaciones.stream()
+                .map(c -> c.getCodigoIATAOrigen() + "-" + c.getCodigoIATADestino() + "-" + c.getHora() + ":" + c.getMinuto())
+                .distinct()
+                .count();
     }
-    
+
     /**
-     * Verifica si un vuelo específico tiene cancelaciones registradas.
-     * 
-     * @param identificadorVuelo Identificador del vuelo
-     * @return true si tiene al menos una cancelación
+     * Obtiene todas las cancelaciones cargadas.
      */
-    public boolean tieneCancelaciones(String identificadorVuelo) {
-        Set<Integer> cancelaciones = cancelacionesPorVuelo.get(identificadorVuelo);
-        return cancelaciones != null && !cancelaciones.isEmpty();
-    }
-    
-    /**
-     * Obtiene los días en que un vuelo específico está cancelado.
-     * 
-     * @param identificadorVuelo Identificador del vuelo
-     * @return Set de días cancelados (inmutable), o set vacío si no hay cancelaciones
-     */
-    public Set<Integer> obtenerDiasCancelados(String identificadorVuelo) {
-        Set<Integer> cancelaciones = cancelacionesPorVuelo.get(identificadorVuelo);
-        if (cancelaciones == null) {
-            return Set.of(); // Set inmutable vacío
-        }
-        return Set.copyOf(cancelaciones); // Copia inmutable para evitar modificaciones externas
+    public List<Cancelacion> getCancelaciones() {
+        return Collections.unmodifiableList(cancelaciones);
     }
 }

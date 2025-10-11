@@ -26,9 +26,6 @@ public class LectorProductos {
     private Map<String, Aeropuerto> mapaAeropuertos;
     private Random aleatorio;
     private int idProducto = 1;
-    private static final boolean DEBUG = true;
-    private long seqPaquete = 0L;   // si NO usas JPA real
-    private long seqProducto = 0L;
 
     public LectorProductos(String rutaArchivo, ArrayList<Aeropuerto> aeropuertos) {
         this.rutaArchivo = rutaArchivo;

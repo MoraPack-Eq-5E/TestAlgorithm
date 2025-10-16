@@ -1,6 +1,6 @@
 package com.grupo5e.morapack.core.enums;
 
-public enum EstadoPaquete {
+public enum EstadoPedido {
     PENDIENTE,
     EN_TRANSITO,
     CANCELADO,

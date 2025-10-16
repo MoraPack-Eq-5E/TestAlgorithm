@@ -19,28 +19,23 @@ public class Ruta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @ManyToMany
-    @JoinTable(
-            name = "rutas_vuelos", // nombre de la tabla intermedia
-            joinColumns = @JoinColumn(name = "ruta_id"), // FK a ruta
-            inverseJoinColumns = @JoinColumn(name = "vuelo_id") // FK a vuelo
-    )
+    @OneToMany (mappedBy = "rutaAsignada")
     private List<Vuelo> vuelos;
 
-    // Ciudad origen de la ruta
+    // Aeropuerto origen de la ruta
     @ManyToOne
-    @JoinColumn(name = "ciudad_origen_id", referencedColumnName = "id", nullable = false)
-    private Ciudad ciudadOrigen;
+    @JoinColumn(name = "aeropuerto_origen_id", referencedColumnName = "id", nullable = false)
+    private Aeropuerto aeropuertoOrigen;
 
-    // Ciudad destino de la ruta
+    // Aeropuerto destino de la ruta
     @ManyToOne
-    @JoinColumn(name = "ciudad_destino_id", referencedColumnName = "id", nullable = false)
-    private Ciudad ciudadDestino;
+    @JoinColumn(name = "aeropuerto_destino_id", referencedColumnName = "id", nullable = false)
+    private Aeropuerto aeropuertoDestino;
 
     private double tiempoTotal;
     private double costoTotal;
 
-    // Relación: muchos pedidos pueden usar una misma ruta
-    @OneToMany(mappedBy = "rutaAsignada")
+    // Relación: muchos pedidos pueden usar muchas rutas
+    @ManyToMany(mappedBy = "rutas")
     private List<Pedido> pedidos;
 }

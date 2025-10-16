@@ -23,8 +23,6 @@ public class Producto {
     @JoinColumn(name = "paquete_id", nullable = false)
     private Pedido pedido;
 
-    private String vueloAsignado;
-
     @Enumerated(EnumType.STRING)
     private EstadoProducto estado;
 }

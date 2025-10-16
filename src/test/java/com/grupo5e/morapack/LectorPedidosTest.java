@@ -1,11 +1,12 @@
 package com.grupo5e.morapack;
 
-import com.grupo5e.morapack.core.enums.EstadoPaquete;
+import com.grupo5e.morapack.core.enums.EstadoPedido;
 import com.grupo5e.morapack.core.enums.EstadoProducto;
 import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.service.AeropuertoService;
 import com.grupo5e.morapack.service.ClienteService;
 import com.grupo5e.morapack.service.PedidoService;
+import com.grupo5e.morapack.service.ProductoService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -38,6 +39,8 @@ public class LectorPedidosTest {
     private ClienteService clienteService;
 
     private final String RUTA_ARCHIVO = "src/test/resources/pedidos.txt";
+    @Autowired
+    private ProductoService productoService;
 
     @Test
     void cargarPedidosDesdeArchivo() {
@@ -93,9 +96,9 @@ public class LectorPedidosTest {
                 pedido.setAeropuertoDestinoCodigo(codigoDestino);
                 pedido.setFechaPedido(fechaPedido);
                 pedido.setFechaLimiteEntrega(fechaEntrega);
-                pedido.setEstado(EstadoPaquete.PENDIENTE);
+                pedido.setEstado(EstadoPedido.PENDIENTE);
                 pedido.setPrioridad(calcularPrioridad(fechaPedido, fechaEntrega));
-
+                pedido.setCantidadProductos(cantidadProductos);
 //                // --- Aeropuerto actual aleatorio (distinto continente) ---
 //                Aeropuerto aeropuertoActual = obtenerAeropuertoAlmacenAleatorio(
 //                        aeropuertos, aeropuertoDestino.getCiudad().getContinente(), random);
@@ -103,13 +106,20 @@ public class LectorPedidosTest {
 
                 // --- Crear productos ---
                 ArrayList<Producto> productos = new ArrayList<>();
-                productos=null;
-//                for (int i = 0; i < cantidadProductos; i++) {
-//                    Producto producto = new Producto();
-//                    producto.setEstado(EstadoProducto.EN_ALMACEN);
-//                    producto.setPedido(pedido);
-//                    productos.add(producto);
-//                }
+                Long idProducto=0L;
+                for (int i = 0; i < cantidadProductos; i++) {
+                    Producto producto = new Producto();
+                    producto.setEstado(EstadoProducto.EN_ALMACEN);
+                    producto.setPedido(pedido);
+                    productos.add(producto);
+                    try{
+                        idProducto = productoService.insertar(producto);
+                        System.out.printf("Se inserto el producto con ID = %d\n",idProducto);
+                    }catch(Exception e){
+                        System.err.println("[ERROR] Falló al guardar producto " + idProducto + ": " + e.getMessage());
+                    }
+
+                }
                 pedido.setProductos(productos);
 
                 // --- Guardar en BD ---

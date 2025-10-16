@@ -92,15 +92,25 @@ public class ALNSSolver {
 
     private final AeropuertoService aeropuertoService;
     private final PedidoService pedidoService;
+    private final VueloService vueloService;
 
     public ALNSSolver(AeropuertoService aeropuertoService,
-                      PedidoService pedidoService) {
+                      PedidoService pedidoService,VueloService vueloService) {
         this.solucion = new HashMap<>();
         this.aeropuertoService = aeropuertoService;
         this.pedidoService = pedidoService;
+        this.vueloService = vueloService;
+
+        //inicializr primero las listas
+        this.aeropuertos = new ArrayList<>(aeropuertoService.listar());
+        this.vuelos = new ArrayList<>(vueloService.listar());
+        this.pedidosOriginales = new ArrayList<>(pedidoService.listar());
+
+        //ASIGNAR AEROPUERTO ORIGEN ALEATORIO A PEDIDOS
+        asignarAeropuertosOrigen();
 
         if (HABILITAR_UNITIZACION_PRODUCTO) {
-            this.pedidos = expandirPaquetesAUnidadesProducto(pedidoService.listar());
+            this.pedidos = expandirPaquetesAUnidadesProducto(this.pedidosOriginales);
             System.out.println("UNITIZACIÓN APLICADA: " + this.pedidosOriginales.size() +
                                " pedidos originales → " + this.pedidos.size() + " unidades de producto");
         } else {
@@ -117,7 +127,7 @@ public class ALNSSolver {
         this.aleatorio = new Random(System.currentTimeMillis());
 
         this.operadoresDestruccion = new ALNSDestruction(this.aeropuertos,aeropuertoService);
-        this.operadoresReparacion = new ALNSRepair(aeropuertos, vuelos, ocupacionAlmacenes,aeropuertoService);
+        this.operadoresReparacion = new ALNSRepair(this.aeropuertos, vuelos, ocupacionAlmacenes,aeropuertoService);
 
         inicializarParametrosALNS();
 
@@ -982,13 +992,11 @@ public class ALNSSolver {
         System.out.println("T0 inicializado: " + T0);
     }
 
-    private List<Pedido> expandirPaquetesAUnidadesProducto(List<Pedido> paquetesOriginales) {
+    private List<Pedido> expandirPaquetesAUnidadesProducto(List<Pedido> pedidosOriginales) {
         List<Pedido> unidadesProducto = new ArrayList<>();
 
-        for (Pedido pedidoOriginal : paquetesOriginales) {
-            int conteoProductos = (pedidoOriginal.getProductos() != null && !pedidoOriginal.getProductos().isEmpty())
-                             ? pedidoOriginal.getProductos().size() : 1;
-
+        for (Pedido pedidoOriginal : pedidosOriginales) {
+            int conteoProductos = pedidoOriginal.getCantidadProductos();
             for (int i = 0; i < conteoProductos; i++) {
                 Pedido unidad = crearUnidadPaquete(pedidoOriginal, i);
                 unidadesProducto.add(unidad);
@@ -1002,33 +1010,20 @@ public class ALNSSolver {
         Pedido unidad = new Pedido();
 
         String idUnidadString = pedidoOriginal.getId() + "#" + indiceUnidad;
-        unidad.setId((long) idUnidadString.hashCode());
+        long hash = idUnidadString.hashCode();
+        System.out.println("🧩 Generando unidad -> base: " + idUnidadString + " | hash=" + hash);
+        unidad.setId(hash);
+
 
         unidad.setCliente(pedidoOriginal.getCliente());
         unidad.setAeropuertoDestinoCodigo(obtenerAeropuerto(pedidoOriginal.getAeropuertoDestinoCodigo()).getCodigoIATA());
+        unidad.setAeropuertoOrigenCodigo(obtenerAeropuerto(pedidoOriginal.getAeropuertoOrigenCodigo()).getCodigoIATA());
         unidad.setFechaPedido(pedidoOriginal.getFechaPedido());
         unidad.setFechaLimiteEntrega(pedidoOriginal.getFechaLimiteEntrega());
         unidad.setEstado(pedidoOriginal.getEstado());
-        unidad.setAeropuertoOrigenCodigo(obtenerAeropuerto(pedidoOriginal.getAeropuertoOrigenCodigo()).getCodigoIATA());
         unidad.setPrioridad(pedidoOriginal.getPrioridad());
-        unidad.setRutaAsignada(pedidoOriginal.getRutaAsignada());
-
-        ArrayList<Producto> productoUnico = new ArrayList<>();
-        if (pedidoOriginal.getProductos() != null && indiceUnidad < pedidoOriginal.getProductos().size()) {
-            Producto productoOriginal = pedidoOriginal.getProductos().get(indiceUnidad);
-            Producto copiaProducto = new Producto();
-            copiaProducto.setId(productoOriginal.getId());
-            copiaProducto.setVueloAsignado(productoOriginal.getVueloAsignado());
-            copiaProducto.setEstado(productoOriginal.getEstado());
-            productoUnico.add(copiaProducto);
-        } else {
-            Producto productoGenerico = new Producto();
-            String idProductoString = pedidoOriginal.getId() + "_P" + indiceUnidad;
-            productoGenerico.setId((long) idProductoString.hashCode());
-            productoUnico.add(productoGenerico);
-        }
-
-        unidad.setProductos(productoUnico);
+        unidad.setCantidadProductos(1);
+        unidad.setProductos(null);
 
         return unidad;
     }
@@ -1668,6 +1663,11 @@ public class ALNSSolver {
     }
 
     private boolean seRespetaDeadline(Pedido pedido, ArrayList<Vuelo> ruta) {
+        // Validación inicial
+        if (ruta == null || ruta.isEmpty()) {
+            System.out.println("⚠️ Pedido " + pedido.getId() + " no tiene vuelos asignados en la ruta.");
+            return false;
+        }
         double tiempoTotal = 0;
         for (Vuelo v : ruta) tiempoTotal += v.getTiempoTransporte();
         if (ruta.size() > 1) tiempoTotal += (ruta.size() - 1) * 2.0;
@@ -1680,6 +1680,17 @@ public class ALNSSolver {
             Ciudad destino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad();
             boolean misma = (origen != null && destino != null) && origen.getContinente() == destino.getContinente();
             int factor = ruta.size() + (misma ? 0 : 2);
+
+            int bound = Math.max(1, factor * 3); // evita valores <= 0
+
+            // Log de diagnóstico
+            if (bound == 1) {
+                System.out.println("⚠️ Bound ajustado a 1 para evitar error. "
+                        + "Pedido: " + pedido.getId()
+                        + ", factor=" + factor
+                        + ", misma=" + misma
+                        + ", ruta.size()=" + ruta.size());
+            }
             margenSeguridad = 0.01 * (1 + aleatorio.nextInt(factor * 3));
             tiempoTotal = tiempoTotal * (1.0 + margenSeguridad);
         }
@@ -2167,5 +2178,22 @@ public class ALNSSolver {
                         .collect(Collectors.joining(", ")));
 
         return null;
+    }
+    //METODO PARA AGREGAR AEROPUERTOS ORIGEN
+    private void asignarAeropuertosOrigen(){
+        for(Pedido pedido : pedidosOriginales){
+            pedido.setAeropuertoOrigenCodigo(colocarAeropuertoPrincipalAleatorio());
+        }
+    }
+    // Método auxiliar para encontrar aeropuerto por defecto
+    private String colocarAeropuertoPrincipalAleatorio() {
+        // Lista de códigos IATA de los aeropuertos principales de MoraPack
+        String[] aeropuertosPrincipales = {"SPIM", "UBBB", "EBCI"};
+
+        Random random = new Random();
+        int indiceAleatorio = random.nextInt(aeropuertosPrincipales.length);
+        String codigoIATAOrigen = aeropuertosPrincipales[indiceAleatorio];
+        System.out.println("🔀 Usando aeropuerto por defecto: " + codigoIATAOrigen);
+        return codigoIATAOrigen;
     }
 }

@@ -3,6 +3,7 @@ package com.grupo5e.morapack.demos;
 import com.grupo5e.morapack.algorithm.alns.ALNSSolver;
 import com.grupo5e.morapack.service.AeropuertoService;
 import com.grupo5e.morapack.service.PedidoService;
+import com.grupo5e.morapack.service.VueloService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -11,11 +12,13 @@ public class ALNSTestRunner implements CommandLineRunner {
 
     private final AeropuertoService aeropuertoService;
     private final PedidoService pedidoService;
+    private final VueloService vueloService;
 
     // Constructor con dependencias inyectadas
-    public ALNSTestRunner(AeropuertoService aeropuertoService, PedidoService pedidoService) {
+    public ALNSTestRunner(AeropuertoService aeropuertoService, PedidoService pedidoService,VueloService vueloService) {
         this.aeropuertoService = aeropuertoService;
         this.pedidoService = pedidoService;
+        this.vueloService = vueloService;
     }
 
     @Override
@@ -28,7 +31,7 @@ public class ALNSTestRunner implements CommandLineRunner {
             System.out.println("AeropuertoService: " + (aeropuertoService != null ? "✅ DISPONIBLE" : "❌ NO DISPONIBLE"));
             System.out.println("PedidoService: " + (pedidoService != null ? "✅ DISPONIBLE" : "❌ NO DISPONIBLE"));
 
-            if (aeropuertoService == null || pedidoService == null) {
+            if (aeropuertoService == null || pedidoService == null || vueloService == null) {
                 throw new RuntimeException("Servicios no disponibles");
             }
 
@@ -59,7 +62,7 @@ public class ALNSTestRunner implements CommandLineRunner {
 
             // Crear solver
             System.out.println("\n=== INICIALIZANDO ALNSSOLVER ===");
-            ALNSSolver solver = new ALNSSolver(aeropuertoService, pedidoService);
+            ALNSSolver solver = new ALNSSolver(aeropuertoService, pedidoService,vueloService);
 
             // Ejecutar algoritmo
             System.out.println("\n=== EJECUTANDO ALGORITMO ===");

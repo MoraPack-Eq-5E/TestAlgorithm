@@ -2,11 +2,9 @@ package com.grupo5e.morapack.utils;
 
 import com.grupo5e.morapack.core.enums.Continente;
 import com.grupo5e.morapack.core.enums.EstadoProducto;
-import com.grupo5e.morapack.core.enums.EstadoPaquete;
+import com.grupo5e.morapack.core.enums.EstadoPedido;
 import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.service.PedidoService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -145,7 +143,7 @@ public class LectorPedidos {
         pedido.setAeropuertoDestinoCodigo(aeropuertoDestino.getCodigoIATA());
         pedido.setFechaPedido(fechaPedido);
         pedido.setFechaLimiteEntrega(plazoEntrega);
-        pedido.setEstado(EstadoPaquete.PENDIENTE);
+        pedido.setEstado(EstadoPedido.PENDIENTE);
 
         // Establecer aeropuerto actual (almacén inicial)
         Aeropuerto aeropuertoActual = obtenerAeropuertoAlmacenAleatorio(aeropuertoDestino.getCiudad().getContinente());

@@ -52,11 +52,10 @@ public class Vuelo {
     @Enumerated(EnumType.STRING)
     private EstadoVuelo estado;
 
-    @ManyToMany(mappedBy = "vuelos") // Relación bidireccional
-    private List<Ruta> rutas;
-    
+    @ManyToOne
+    @JoinColumn(name = "ruta_id", referencedColumnName = "id", nullable = true)
+    private Ruta rutaAsignada;
 
-    
     /**
      * Genera el identificador único del vuelo basado en ruta y horario.
      * Formato: "ORIGEN-DESTINO-HH:MM"

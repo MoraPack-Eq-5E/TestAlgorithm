@@ -129,21 +129,22 @@ public class ALNSRepair {
             ArrayList<Vuelo> mejorRuta = encontrarMejorRuta(pedido);
 
             if (mejorRuta == null) {
-                System.out.println("❌ No se encontró ninguna ruta válida");
+                //System.out.println("❌ No se encontró ninguna ruta válida");
                 paquetesNoAsignados.add(pedido);
                 continue;
             }
 
             // Validar ruta
             if (!esRutaValida(pedido, mejorRuta, conteoProductos)) {
-                System.out.println("❌ Ruta no válida (no cumple validaciones)");
+                //System.out.println("❌ Ruta no válida (no cumple validaciones)");
                 paquetesNoAsignados.add(pedido);
                 continue;
             }
 
             solucionReparada.put(pedido, mejorRuta);
             actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
-            incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+            actualizarCapacidadAeropuertos(aeropuertoDestino.getCodigoIATA(), conteoProductos);
+            //incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
             conteoReinsertados++;
 
 //            if (mejorRuta != null && esRutaValida(pedido, mejorRuta, conteoProductos)) {
@@ -245,7 +246,7 @@ public class ALNSRepair {
                 solucionReparada.put(mejorPedido, mejorRuta);
                 int conteoProductos = mejorPedido.getProductos() != null ? mejorPedido.getProductos().size() : 1;
                 actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
-                incrementarOcupacionAlmacen(obtenerAeropuerto(mejorPedido.getAeropuertoDestinoCodigo()), conteoProductos);
+                actualizarCapacidadAeropuertos(mejorPedido.getAeropuertoDestinoCodigo(), conteoProductos);
                 paquetesRestantes.remove(mejorPedido);
                 conteoReinsertados++;
             } else {
@@ -470,17 +471,17 @@ public class ALNSRepair {
             // Buscar ruta con mayor margen de tiempo
             ArrayList<Vuelo> mejorRuta = encontrarRutaConMaximoMargen(pedido);
 
-            if (mejorRuta != null && !esRutaValida(pedido, mejorRuta, conteoProductos)) {
-                System.out.println("⚠️ Ruta no válida para pedido: " + pedido.getId());
-            }
-            if (mejorRuta == null) {
-                System.out.println("⚠️ No se encontró ruta para pedido: " + pedido.getAeropuertoOrigenCodigo() +
-                        " → " + pedido.getAeropuertoDestinoCodigo());
-            }
+//            if (mejorRuta != null && !esRutaValida(pedido, mejorRuta, conteoProductos)) {
+//                System.out.println("⚠️ Ruta no válida para pedido: " + pedido.getId());
+//            }
+//            if (mejorRuta == null) {
+//                System.out.println("⚠️ No se encontró ruta para pedido: " + pedido.getAeropuertoOrigenCodigo() +
+//                        " → " + pedido.getAeropuertoDestinoCodigo());
+//            }
             if (mejorRuta != null && esRutaValida(pedido, mejorRuta, conteoProductos)) {
                 solucionReparada.put(pedido, mejorRuta);
                 actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
-                incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+                actualizarCapacidadAeropuertos(aeropuertoDestino.getCodigoIATA(), conteoProductos);
                 conteoReinsertados++;
             } else {
                 paquetesNoAsignados.add(pedido);
@@ -681,7 +682,7 @@ public class ALNSRepair {
             if (mejorRuta != null && esRutaValida(pedido, mejorRuta, conteoProductos)) {
                 solucionReparada.put(pedido, mejorRuta);
                 actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
-                incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+                actualizarCapacidadAeropuertos(aeropuertoDestino.getCodigoIATA(), conteoProductos);
                 conteoReinsertados++;
             } else {
                 paquetesNoAsignados.add(pedido);
@@ -1077,7 +1078,7 @@ public class ALNSRepair {
 
         // Verificar capacidad de vuelos con cantidad específica
         if (!cabeEnCapacidadRuta(ruta, cantidad)) {
-            System.out.println("  ❌ No cabe en capacidad de vuelos");
+            //System.out.println("  ❌ No cabe en capacidad de vuelos");
             return false;
         }
         //System.out.println("  ✅ Capacidad de vuelos OK");
@@ -1086,24 +1087,15 @@ public class ALNSRepair {
         Ciudad ubicacionActual = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad();
         for (int i = 0; i < ruta.size(); i++) {
             Vuelo vuelo = ruta.get(i);
-            Aeropuerto aeropuertoActual = obtenerAeropuertoPorCiudad(ubicacionActual);
-
-            if (!vuelo.getAeropuertoOrigen().getCodigoIATA().equals(aeropuertoActual.getCodigoIATA())) {
-//                System.out.println("  ❌ Discontinuidad en vuelo " + i +
-//                        ": esperado " + aeropuertoActual.getCodigoIATA() +
-//                        ", encontrado " + vuelo.getAeropuertoOrigen().getCodigoIATA());
+            String aeropuertoActualCodigo = vuelo.getAeropuertoOrigen().getCodigoIATA();
+            if(ruta.size()==1 && !aeropuertoActualCodigo.equals(pedido.getAeropuertoDestinoCodigo())){
                 return false;
+            } else if (i!=0) {
+                //verificamos vuelos
+                if(!aeropuertoActualCodigo.equals(ruta.get(i-1).getAeropuertoDestino().getCodigoIATA()))
+                    return false;
             }
-            ubicacionActual = obtenerCiudadPorAeropuerto(vuelo.getAeropuertoDestino());
         }
-
-        Ciudad destinoFinal = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad();
-        if (!ubicacionActual.getNombre().equals(destinoFinal.getNombre())) {
-            //System.out.println("  ❌ Destino final incorrecto: " + ubicacionActual.getNombre() +
-                    //" vs " + destinoFinal.getNombre());
-            return false;
-        }
-        //System.out.println("  ✅ Continuidad de ruta OK");
 
         // Verificar deadline
         boolean deadlineOk = seRespetaDeadline(pedido, ruta);
@@ -1237,26 +1229,12 @@ public class ALNSRepair {
 
     // Métodos de búsqueda de rutas (simplificados, podrían referenciar a Solution.java)
     private ArrayList<Vuelo> encontrarRutaDirecta(String codigoOrigen, String codigoDestino) {
-        Aeropuerto aeropuertoOrigen = obtenerAeropuerto(codigoOrigen);
-        Aeropuerto aeropuertoDestino = obtenerAeropuerto(codigoDestino);
-
-        if (aeropuertoOrigen == null || aeropuertoDestino == null) {
-            System.out.println("❌ ERROR: Aeropuertos no encontrados - Origen: " + codigoOrigen + ", Destino: " + codigoDestino);
-            return null;
-        }
-
-        //System.out.println("    Buscando ruta directa: " + aeropuertoOrigen.getCodigoIATA() + " → " + aeropuertoDestino.getCodigoIATA());
 
         for (Vuelo vuelo : vuelos) {
-            boolean mismoOrigen = vuelo.getAeropuertoOrigen().getCodigoIATA().equals(aeropuertoOrigen.getCodigoIATA());
-            boolean mismoDestino = vuelo.getAeropuertoDestino().getCodigoIATA().equals(aeropuertoDestino.getCodigoIATA());
+            boolean mismoOrigen = vuelo.getAeropuertoOrigen().getCodigoIATA().equals(codigoOrigen);
+            boolean mismoDestino = vuelo.getAeropuertoDestino().getCodigoIATA().equals(codigoDestino);
 
             if (mismoOrigen && mismoDestino) {
-//                System.out.println("    ✅ VUELO DIRECTO ENCONTRADO: " +
-//                        vuelo.getAeropuertoOrigen().getCodigoIATA() + " → " +
-//                        vuelo.getAeropuertoDestino().getCodigoIATA() +
-//                        " (Cap: " + vuelo.getCapacidadUsada() + "/" + vuelo.getCapacidadMaxima() + ")");
-
                 ArrayList<Vuelo> ruta = new ArrayList<>();
                 ruta.add(vuelo);
                 return ruta;
@@ -1268,20 +1246,10 @@ public class ALNSRepair {
     }
 
     private ArrayList<Vuelo> encontrarRutaUnaEscala(String codigoOrigen, String codigoDestino) {
-        Aeropuerto aeropuertoOrigen = obtenerAeropuerto(codigoOrigen);
-        Aeropuerto aeropuertoDestino = obtenerAeropuerto(codigoDestino);
-
-        if (aeropuertoOrigen == null || aeropuertoDestino == null) {
-            System.out.println("❌ ERROR: Aeropuertos no encontrados para ruta con escala");
-            return null;
-        }
-
-        //System.out.println("    Buscando ruta con 1 escala: " + codigoOrigen + " → ? → " + codigoDestino);
-
         // Buscar todos los posibles aeropuertos intermedios
         for (Aeropuerto intermedio : aeropuertos) {
-            if (intermedio.getCodigoIATA().equals(aeropuertoOrigen.getCodigoIATA()) ||
-                    intermedio.getCodigoIATA().equals(aeropuertoDestino.getCodigoIATA())) {
+            if (intermedio.getCodigoIATA().equals(codigoOrigen) ||
+                    intermedio.getCodigoIATA().equals(codigoDestino)) {
                 continue;
             }
 
@@ -1290,7 +1258,7 @@ public class ALNSRepair {
 
             // Buscar primer tramo: Origen → Intermedio
             for (Vuelo vuelo : vuelos) {
-                if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(aeropuertoOrigen.getCodigoIATA()) &&
+                if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(codigoOrigen) &&
                         vuelo.getAeropuertoDestino().getCodigoIATA().equals(intermedio.getCodigoIATA())) {
                     primerVuelo = vuelo;
                     break;
@@ -1302,19 +1270,13 @@ public class ALNSRepair {
             // Buscar segundo tramo: Intermedio → Destino
             for (Vuelo vuelo : vuelos) {
                 if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(intermedio.getCodigoIATA()) &&
-                        vuelo.getAeropuertoDestino().getCodigoIATA().equals(aeropuertoDestino.getCodigoIATA())) {
+                        vuelo.getAeropuertoDestino().getCodigoIATA().equals(codigoDestino)) {
                     segundoVuelo = vuelo;
                     break;
                 }
             }
 
             if (segundoVuelo != null) {
-//                System.out.println("    ✅ RUTA CON 1 ESCALA ENCONTRADA:");
-//                System.out.println("      1. " + primerVuelo.getAeropuertoOrigen().getCodigoIATA() +
-//                        " → " + primerVuelo.getAeropuertoDestino().getCodigoIATA());
-//                System.out.println("      2. " + segundoVuelo.getAeropuertoOrigen().getCodigoIATA() +
-//                        " → " + segundoVuelo.getAeropuertoDestino().getCodigoIATA());
-
                 ArrayList<Vuelo> ruta = new ArrayList<>();
                 ruta.add(primerVuelo);
                 ruta.add(segundoVuelo);
@@ -1327,16 +1289,10 @@ public class ALNSRepair {
     }
 
     private ArrayList<Vuelo> encontrarRutaDosEscalas(String codigoOrigen, String codigoDestino) {
-        Aeropuerto aeropuertoOrigen = obtenerAeropuerto(codigoOrigen);
-        Aeropuerto aeropuertoDestino = obtenerAeropuerto(codigoDestino);
-
-        if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
-
-        // Simplificado: buscar solo algunas combinaciones aleatorias para eficiencia
         ArrayList<Aeropuerto> candidatos = new ArrayList<>();
         for (Aeropuerto aeropuerto : aeropuertos) {
-            if (!aeropuerto.getCodigoIATA().equals(aeropuertoOrigen.getCodigoIATA()) &&
-                    !aeropuerto.getCodigoIATA().equals(aeropuertoDestino.getCodigoIATA())) {
+            if (!aeropuerto.getCodigoIATA().equals(codigoOrigen) &&
+                    !aeropuerto.getCodigoIATA().equals(codigoDestino)) {
                 candidatos.add(aeropuerto);
             }
         }
@@ -1351,11 +1307,13 @@ public class ALNSRepair {
             for (int j = i + 1; j < Math.min(i + 5, candidatos.size()); j++) {
                 Aeropuerto segundo = candidatos.get(j);
 
-                ArrayList<Vuelo> ruta = intentarRutaDosEscalas(aeropuertoOrigen, primero, segundo, aeropuertoDestino);
+                ArrayList<Vuelo> ruta = intentarRutaDosEscalas(codigoOrigen, primero.getCodigoIATA(),
+                        segundo.getCodigoIATA(), codigoDestino);
                 if (ruta != null) return ruta;
 
                 // También probar en orden inverso
-                ruta = intentarRutaDosEscalas(aeropuertoOrigen, segundo, primero, aeropuertoDestino);
+                ruta = intentarRutaDosEscalas(codigoOrigen, segundo.getCodigoIATA(),
+                        primero.getCodigoIATA(), codigoDestino);
                 if (ruta != null) return ruta;
             }
         }
@@ -1363,13 +1321,13 @@ public class ALNSRepair {
         return null;
     }
 
-    private ArrayList<Vuelo> intentarRutaDosEscalas(Aeropuerto origen, Aeropuerto primero, Aeropuerto segundo, Aeropuerto destino) {
+    private ArrayList<Vuelo> intentarRutaDosEscalas(String origen, String primero, String segundo, String destino) {
         Vuelo vuelo1 = null, vuelo2 = null, vuelo3 = null;
 
         // Buscar vuelo 1: origen -> primero
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(origen.getCodigoIATA()) &&
-                vuelo.getAeropuertoDestino().getCodigoIATA().equals(primero.getCodigoIATA()) &&
+            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(origen) &&
+                vuelo.getAeropuertoDestino().getCodigoIATA().equals(primero) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo1 = vuelo;
                 break;
@@ -1380,8 +1338,8 @@ public class ALNSRepair {
 
         // Buscar vuelo 2: primero -> segundo
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(primero.getCodigoIATA()) &&
-                vuelo.getAeropuertoDestino().getCodigoIATA().equals(segundo.getCodigoIATA()) &&
+            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(primero) &&
+                vuelo.getAeropuertoDestino().getCodigoIATA().equals(segundo) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo2 = vuelo;
                 break;
@@ -1392,8 +1350,8 @@ public class ALNSRepair {
 
         // Buscar vuelo 3: segundo -> destino
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(segundo.getCodigoIATA()) &&
-                vuelo.getAeropuertoDestino().getCodigoIATA().equals(destino.getCodigoIATA()) &&
+            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(segundo) &&
+                vuelo.getAeropuertoDestino().getCodigoIATA().equals(destino) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo3 = vuelo;
                 break;
@@ -1436,13 +1394,13 @@ public class ALNSRepair {
         if (aeropuertoDestino == null) return false;
 
         // Evitar null en el mapa
-        if (!ocupacionAlmacenes.containsKey(aeropuertoDestino)) {
-            ocupacionAlmacenes.put(aeropuertoDestino, 0);
-        }
+//        if (!ocupacionAlmacenes.containsKey(aeropuertoDestino)) {
+//            ocupacionAlmacenes.put(aeropuertoDestino, 0);
+//        }
 
         int capacidad = aeropuertoDestino.getCapacidadMaxima();
-        int ocupacion = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
-
+        //int ocupacion = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
+        int ocupacion = aeropuertoDestino.getCapacidadActual();
         // Si la capacidad del aeropuerto es 0, se considera sin espacio
         if (capacidad == 0) {
             if (Constantes.LOGGING_VERBOSO)
@@ -1467,8 +1425,8 @@ public class ALNSRepair {
     }
 
     private void incrementarOcupacionAlmacen(Aeropuerto aeropuerto, int conteoProductos) {
-        int actual = ocupacionAlmacenes.getOrDefault(aeropuerto, 0);
-        ocupacionAlmacenes.put(aeropuerto, actual + conteoProductos);
+        int actual = aeropuerto.getCapacidadActual();
+        aeropuerto.setCapacidadActual(actual + conteoProductos);
     }
 
     // ================= CLASES AUXILIARES =================
@@ -1609,5 +1567,14 @@ public class ALNSRepair {
             }
         }
         System.out.println("  Total vuelos hacia " + codigoDestino + ": " + vuelosHaciaDestino);
+    }
+    void actualizarCapacidadAeropuertos(String codigoAeropuertoDestino, int cantidad) {
+        for(Aeropuerto aeropuerto : aeropuertos) {
+            if(aeropuerto.getCodigoIATA().equals(codigoAeropuertoDestino)) {
+                int capacidadActual = aeropuerto.getCapacidadActual();
+                aeropuerto.setCapacidadActual(capacidadActual + cantidad);
+                break;
+            }
+        }
     }
 }

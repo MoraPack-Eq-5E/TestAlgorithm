@@ -9,11 +9,7 @@ import com.grupo5e.morapack.core.index.CacheDisponibilidad;
 import com.grupo5e.morapack.service.AeropuertoService;
 import com.grupo5e.morapack.service.PedidoService;
 import com.grupo5e.morapack.service.VueloService;
-import com.grupo5e.morapack.utils.LectorAeropuerto;
-import com.grupo5e.morapack.utils.LectorVuelos;
-import com.grupo5e.morapack.utils.LectorPedidos;
 import com.grupo5e.morapack.utils.LectorCancelaciones;
-import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.time.LocalDateTime;
@@ -136,7 +132,7 @@ public class ALNSSolver {
 
         inicializarParametrosALNS();
 
-        inicializarOcupacionAlmacenes();
+        inicializarCapacidadAeropuertos();
         inicializarOcupacionTemporalAlmacenes();
 
         // Inicializar servicio de cancelaciones
@@ -400,19 +396,6 @@ public class ALNSSolver {
     }
 
     private void ejecutarAlgoritmoALNS() {
-//        HashMap<Pedido, ArrayList<Vuelo>> solucionActual = null;
-//        int pesoActual = Integer.MAX_VALUE;
-//
-//        for (Map.Entry<HashMap<Pedido, ArrayList<Vuelo>>, Integer> entrada : solucion.entrySet()) {
-//            solucionActual = new HashMap<>(entrada.getKey());
-//            pesoActual = entrada.getValue();
-//            break;
-//        }
-//
-//        if (solucionActual == null) {
-//            System.out.println("Error: No se pudo obtener la solución inicial");
-//            return;
-//        }
         // Extraer solución inicial de manera más robusta
         if (solucion.isEmpty()) {
             System.out.println("Error: No hay solución inicial");
@@ -423,7 +406,7 @@ public class ALNSSolver {
                 solucion.entrySet().iterator().next();
         HashMap<Pedido, ArrayList<Vuelo>> solucionActual = new HashMap<>(primeraEntrada.getKey());
         int pesoActual = primeraEntrada.getValue();
-        //////////
+
         System.out.println("Peso de solución inicial: " + pesoActual);
 
         ultimoPesoSignificativo = pesoActual;
@@ -460,8 +443,8 @@ public class ALNSSolver {
 
             //Crear una foto de las capacidades en esa iteracion de los vuelos y de los aeropuertos
             //esto sirve para revertir una destruccion o una reparacion de una solucion
-            Map<Vuelo, Integer> snapshotCapacidades = crearSnapshotCapacidades(); //VUELOS
-            Map<Aeropuerto, Integer> snapshotAlmacenes = crearSnapshotAlmacenes(); //AEROPUERTOS
+            Map<Vuelo, Integer> snapshotCapacidadesVuelos = crearSnapshotCapacidadesVuelos(); //VUELOS
+            Map<Aeropuerto, Integer> snapshotCapacidadAeropuertos = crearSnapshotCapacidadAeropuerto(); //AEROPUERTOS
 
             if (Constantes.LOGGING_VERBOSO) {
                 System.out.println("  Aplicando operador de destrucción...");
@@ -499,8 +482,8 @@ public class ALNSSolver {
                 solucionTemporal, operadorReparacion, paquetesExpandidos);
 
             if (resultadoReparacion == null || !resultadoReparacion.esExitoso()) {
-                restaurarCapacidades(snapshotCapacidades);
-                restaurarAlmacenes(snapshotAlmacenes);
+                restaurarVuelos(snapshotCapacidadesVuelos);
+                restaurarAeropuertos(snapshotCapacidadAeropuertos);
                 continue;
             }
 
@@ -578,8 +561,8 @@ public class ALNSSolver {
             }
 
             if (!aceptada) {
-                restaurarCapacidades(snapshotCapacidades);
-                restaurarAlmacenes(snapshotAlmacenes);
+                restaurarVuelos(snapshotCapacidadesVuelos);
+                restaurarAeropuertos(snapshotCapacidadAeropuertos);
                 conteoSinMejoras++;
             }
 
@@ -714,62 +697,218 @@ public class ALNSSolver {
         return nuevaSolucion;
     }
 
+//    private HashMap<Pedido, ArrayList<Vuelo>> restartGreedy() {
+//        for (Vuelo f : vuelos) {
+//            f.setCapacidadUsada(0);
+//        }
+//        for(Aeropuerto a : aeropuertos) {
+//            a.setCapacidadActual(0);
+//        }
+//        //inicializarCapacidadAeropuertos();
+//
+//        HashMap<Pedido, ArrayList<Vuelo>> nuevaSolucion = new HashMap<>();
+//
+//        ArrayList<Pedido> ordenados = new ArrayList<>(pedidos);
+//
+//        switch (contadorRestarts % 4) {
+//            case 0:
+//                ordenados.sort((p1, p2) -> Double.compare(p1.getPrioridad(), p2.getPrioridad()));
+//                System.out.println("Ordenamiento: Prioridad inversa");
+//                break;
+//            case 1:
+//                ordenados.sort((p1, p2) -> {
+//                    int a = p1.getProductos() != null ? p1.getProductos().size() : 1;
+//                    int b = p2.getProductos() != null ? p2.getProductos().size() : 1;
+//                    return Integer.compare(b, a);
+//                });
+//                System.out.println("Ordenamiento: Más productos primero");
+//                break;
+//            case 2:
+//                ordenados.sort((p1, p2) -> {
+//                    boolean p1Cont = obtenerAeropuerto(p1.getAeropuertoOrigenCodigo()).getCiudad().getContinente() ==
+//                            obtenerAeropuerto(p1.getAeropuertoDestinoCodigo()).getCiudad().getContinente();
+//                    boolean p2Cont = obtenerAeropuerto(p2.getAeropuertoOrigenCodigo()).getCiudad().getContinente() ==
+//                            obtenerAeropuerto(p2.getAeropuertoDestinoCodigo()).getCiudad().getContinente();
+//                    return Boolean.compare(p1Cont, p2Cont);
+//                });
+//                System.out.println("Ordenamiento: Intercontinentales primero");
+//                break;
+//            case 3:
+//                Collections.shuffle(ordenados, aleatorio);
+//                System.out.println("Ordenamiento: Aleatorio");
+//                break;
+//        }
+//
+//        int asignados = 0;
+//        for (Pedido p : ordenados) {
+//            ArrayList<Vuelo> mejorRuta = encontrarMejorRutaConVentanasTiempo(p, nuevaSolucion);
+//            if (mejorRuta != null) {
+//                int cnt = p.getProductos() != null ? p.getProductos().size() : 1;
+//                if (puedeAsignarConOptimizacionEspacio(p, mejorRuta, nuevaSolucion)) {
+//                    nuevaSolucion.put(p, mejorRuta);
+//                    actualizarCapacidadesVuelos(mejorRuta, cnt);
+//                    actualizarCapacidadAeropuertos(p.getAeropuertoDestinoCodigo(), cnt);
+//                    asignados++;
+//                }
+//            }
+//        }
+//
+//        System.out.println("Restart greedy: " + asignados + "/" + pedidos.size() + " pedidos asignados");
+//        return nuevaSolucion;
+//    }
     private HashMap<Pedido, ArrayList<Vuelo>> restartGreedy() {
+        System.out.println("=== INICIANDO RESTART GREEDY ===");
+
+        // Reiniciar capacidades PERO mantener la estructura
         for (Vuelo f : vuelos) {
             f.setCapacidadUsada(0);
         }
-        inicializarOcupacionAlmacenes();
-
-        HashMap<Pedido, ArrayList<Vuelo>> nuevaSolucion = new HashMap<>();
-
-        ArrayList<Pedido> ordenados = new ArrayList<>(pedidos);
-
-        switch (contadorRestarts % 4) {
-            case 0:
-                ordenados.sort((p1, p2) -> Double.compare(p1.getPrioridad(), p2.getPrioridad()));
-                System.out.println("Ordenamiento: Prioridad inversa");
-                break;
-            case 1:
-                ordenados.sort((p1, p2) -> {
-                    int a = p1.getProductos() != null ? p1.getProductos().size() : 1;
-                    int b = p2.getProductos() != null ? p2.getProductos().size() : 1;
-                    return Integer.compare(b, a);
-                });
-                System.out.println("Ordenamiento: Más productos primero");
-                break;
-            case 2:
-                ordenados.sort((p1, p2) -> {
-                    boolean p1Cont = obtenerAeropuerto(p1.getAeropuertoOrigenCodigo()).getCiudad().getContinente() ==
-                            obtenerAeropuerto(p1.getAeropuertoDestinoCodigo()).getCiudad().getContinente();
-                    boolean p2Cont = obtenerAeropuerto(p2.getAeropuertoOrigenCodigo()).getCiudad().getContinente() ==
-                            obtenerAeropuerto(p2.getAeropuertoDestinoCodigo()).getCiudad().getContinente();
-                    return Boolean.compare(p1Cont, p2Cont);
-                });
-                System.out.println("Ordenamiento: Intercontinentales primero");
-                break;
-            case 3:
-                Collections.shuffle(ordenados, aleatorio);
-                System.out.println("Ordenamiento: Aleatorio");
-                break;
+        for(Aeropuerto a : aeropuertos) {
+            a.setCapacidadActual(0);
         }
 
+        HashMap<Pedido, ArrayList<Vuelo>> nuevaSolucion = new HashMap<>();
+        ArrayList<Pedido> ordenados = new ArrayList<>(pedidos);
+
+        // Ordenamiento más agresivo
+        ordenados.sort((p1, p2) -> {
+            // 1. Prioridad más alta primero
+            int prioridadCompare = Double.compare(p2.getPrioridad(), p1.getPrioridad());
+            if (prioridadCompare != 0) return prioridadCompare;
+
+            // 2. Menos productos primero (más fáciles de colocar)
+            int productos1 = p1.getProductos() != null ? p1.getProductos().size() : 1;
+            int productos2 = p2.getProductos() != null ? p2.getProductos().size() : 1;
+            return Integer.compare(productos1, productos2);
+        });
+
+        System.out.println("Ordenamiento: Prioridad + Menos productos primero");
+
         int asignados = 0;
+        int intentosFallidos = 0;
+        int maxIntentosFallidos = 100; // Parada temprana
+
         for (Pedido p : ordenados) {
-            ArrayList<Vuelo> mejorRuta = encontrarMejorRutaConVentanasTiempo(p, nuevaSolucion);
-            if (mejorRuta != null) {
+            if (intentosFallidos >= maxIntentosFallidos) {
+                System.out.println("Parada temprana: muchos intentos fallidos consecutivos");
+                break;
+            }
+
+            // DEBUG: Información del pedido
+            if (Constantes.LOGGING_VERBOSO) {
+                System.out.println("Procesando pedido " + p.getId() +
+                        " - Origen: " + p.getAeropuertoOrigenCodigo() +
+                        " - Destino: " + p.getAeropuertoDestinoCodigo());
+            }
+
+            ArrayList<Vuelo> mejorRuta = encontrarMejorRutaRobusta(p);
+
+            if (mejorRuta != null && !mejorRuta.isEmpty()) {
                 int cnt = p.getProductos() != null ? p.getProductos().size() : 1;
-                if (puedeAsignarConOptimizacionEspacio(p, mejorRuta, nuevaSolucion)) {
+
+                // Verificar capacidad más permisiva
+                if (puedeAsignarConCapacidadPermisiva(p, mejorRuta)) {
                     nuevaSolucion.put(p, mejorRuta);
                     actualizarCapacidadesVuelos(mejorRuta, cnt);
-                    Aeropuerto destino = obtenerAeropuerto(p.getAeropuertoDestinoCodigo());
-                    if (destino != null) incrementarOcupacionAlmacen(destino, cnt);
+                    actualizarCapacidadAeropuertos(p.getAeropuertoDestinoCodigo(), cnt);
                     asignados++;
+                    intentosFallidos = 0; // Resetear contador de fallos
+
+                    if (Constantes.LOGGING_VERBOSO) {
+                        System.out.println("✓ Asignado pedido " + p.getId() + " con " + mejorRuta.size() + " vuelos");
+                    }
+                } else {
+                    intentosFallidos++;
+                    if (Constantes.LOGGING_VERBOSO) {
+                        System.out.println("✗ Capacidad insuficiente para pedido " + p.getId());
+                    }
+                }
+            } else {
+                intentosFallidos++;
+                if (Constantes.LOGGING_VERBOSO) {
+                    System.out.println("✗ No se encontró ruta para pedido " + p.getId());
                 }
             }
         }
 
         System.out.println("Restart greedy: " + asignados + "/" + pedidos.size() + " pedidos asignados");
+        System.out.println("=== FIN RESTART GREEDY ===");
         return nuevaSolucion;
+    }
+    private ArrayList<Vuelo> encontrarMejorRutaRobusta(Pedido pedido) {
+        try {
+            // Intentar método original primero
+            ArrayList<Vuelo> ruta = encontrarMejorRuta(pedido);
+            if (ruta != null && !ruta.isEmpty()) {
+                return ruta;
+            }
+
+            // Fallback: búsqueda directa sin cache
+            Aeropuerto origen = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo());
+            Aeropuerto destino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
+
+            if (origen == null || destino == null) {
+                return null;
+            }
+
+            // Búsqueda directa en la lista de vuelos
+            for (Vuelo vuelo : vuelos) {
+                if (vuelo.getAeropuertoOrigen().equals(origen) &&
+                        vuelo.getAeropuertoDestino().equals(destino) &&
+                        vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
+                    ArrayList<Vuelo> rutaDirecta = new ArrayList<>();
+                    rutaDirecta.add(vuelo);
+                    return rutaDirecta;
+                }
+            }
+
+            // Buscar con una escala
+            for (Vuelo primerVuelo : vuelos) {
+                if (primerVuelo.getAeropuertoOrigen().equals(origen) &&
+                        primerVuelo.getCapacidadUsada() < primerVuelo.getCapacidadMaxima()) {
+
+                    Aeropuerto escala = primerVuelo.getAeropuertoDestino();
+
+                    for (Vuelo segundoVuelo : vuelos) {
+                        if (segundoVuelo.getAeropuertoOrigen().equals(escala) &&
+                                segundoVuelo.getAeropuertoDestino().equals(destino) &&
+                                segundoVuelo.getCapacidadUsada() < segundoVuelo.getCapacidadMaxima()) {
+
+                            ArrayList<Vuelo> rutaConEscala = new ArrayList<>();
+                            rutaConEscala.add(primerVuelo);
+                            rutaConEscala.add(segundoVuelo);
+                            return rutaConEscala;
+                        }
+                    }
+                }
+            }
+
+            return null;
+
+        } catch (Exception e) {
+            System.err.println("Error en encontrarMejorRutaRobusta: " + e.getMessage());
+            return null;
+        }
+    }
+    private boolean puedeAsignarConCapacidadPermisiva(Pedido pedido, ArrayList<Vuelo> ruta) {
+        if (ruta == null || ruta.isEmpty()) return false;
+
+        int cantidadProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
+
+        // Verificar capacidad de vuelos
+        for (Vuelo vuelo : ruta) {
+            if (vuelo.getCapacidadUsada() + cantidadProductos > vuelo.getCapacidadMaxima()) {
+                return false;
+            }
+        }
+
+        // Verificar capacidad del aeropuerto destino (más permisivo)
+        Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
+        if (aeropuertoDestino == null) return false;
+
+        // Permitir hasta el 95% de capacidad para restart
+        int capacidadDisponible = aeropuertoDestino.getCapacidadMaxima() - aeropuertoDestino.getCapacidadActual();
+        return cantidadProductos <= capacidadDisponible;
     }
 
     private HashMap<Pedido, ArrayList<Vuelo>> restartHibrido(HashMap<Pedido, ArrayList<Vuelo>> solucionActual) {
@@ -969,7 +1108,7 @@ public class ALNSSolver {
         }
     }
 
-    private Map<Vuelo, Integer> crearSnapshotCapacidades() {
+    private Map<Vuelo, Integer> crearSnapshotCapacidadesVuelos() {
         Map<Vuelo, Integer> snapshot = new HashMap<>();
         for (Vuelo f : vuelos) {
             snapshot.put(f, f.getCapacidadUsada());
@@ -977,7 +1116,7 @@ public class ALNSSolver {
         return snapshot;
     }
 
-    private void restaurarCapacidades(Map<Vuelo, Integer> snapshot) {
+    private void restaurarVuelos(Map<Vuelo, Integer> snapshot) {
         for (Vuelo f : vuelos) {
             f.setCapacidadUsada(snapshot.getOrDefault(f, 0));
         }
@@ -999,21 +1138,26 @@ public class ALNSSolver {
         }
     }
 
-    private Map<Aeropuerto, Integer> crearSnapshotAlmacenes() {
+    private Map<Aeropuerto, Integer> crearSnapshotCapacidadAeropuerto() {
         Map<Aeropuerto, Integer> snapshot = new HashMap<>();
         for (Aeropuerto aeropuerto : aeropuertos) {
-            snapshot.put(aeropuerto, ocupacionAlmacenes.getOrDefault(aeropuerto, 0));
+            snapshot.put(aeropuerto, aeropuerto.getCapacidadActual());
+            //snapshot.put(aeropuerto, ocupacionAlmacenes.getOrDefault(aeropuerto, 0));
         }
         return snapshot;
     }
 
-    private void restaurarAlmacenes(Map<Aeropuerto, Integer> snapshot) {
-        ocupacionAlmacenes.clear();
-        ocupacionAlmacenes.putAll(snapshot);
+    private void restaurarAeropuertos(Map<Aeropuerto, Integer> snapshot) {
+        for(Aeropuerto aeropuerto : aeropuertos) {
+            aeropuerto.setCapacidadActual(snapshot.getOrDefault(aeropuerto, 0));
+            //ocupacionAlmacenes.put(aeropuerto, snapshot.getOrDefault(aeropuerto, 0));
+        }
+//        ocupacionAlmacenes.clear();
+//        ocupacionAlmacenes.putAll(snapshot);
     }
 
     private void reconstruirAlmacenesDesdeSolucion(HashMap<Pedido, ArrayList<Vuelo>> solucion) {
-        inicializarOcupacionAlmacenes();
+        inicializarCapacidadAeropuertos();
 
         for (Map.Entry<Pedido, ArrayList<Vuelo>> entrada : solucion.entrySet()) {
             Pedido pedido = entrada.getKey();
@@ -1023,15 +1167,23 @@ public class ALNSSolver {
             if (ruta == null || ruta.isEmpty()) {
                 Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
                 if (aeropuertoDestino != null) {
-                    incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+                    actualizarCapacidadAeropuertos(aeropuertoDestino.getCodigoIATA(), conteoProductos);
                 }
             } else {
                 Vuelo ultimoVuelo = ruta.get(ruta.size() - 1);
-                incrementarOcupacionAlmacen(ultimoVuelo.getAeropuertoDestino(), conteoProductos);
+                actualizarCapacidadAeropuertos(ultimoVuelo.getAeropuertoDestino().getCodigoIATA(), conteoProductos);
             }
         }
     }
-
+    void actualizarCapacidadAeropuertos(String codigoAeropuertoDestino, int cantidad) {
+        for(Aeropuerto aeropuerto : aeropuertos) {
+            if(aeropuerto.getCodigoIATA().equals(codigoAeropuertoDestino)) {
+                int capacidadActual = aeropuerto.getCapacidadActual();
+                aeropuerto.setCapacidadActual(capacidadActual + cantidad);
+                break;
+            }
+        }
+    }
     private boolean cabeEnCapacidad(ArrayList<Vuelo> ruta, int cantidad) {
         if (ruta == null || ruta.isEmpty()) return true;
 
@@ -1172,7 +1324,7 @@ public class ALNSSolver {
         if (aeropuertoDestino == null) return false;
 
         int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
-        int ocupacionActual = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
+        int ocupacionActual = aeropuertoDestino.getCapacidadActual();
         int capacidadMaxima = aeropuertoDestino.getCapacidadMaxima();
 
         return (ocupacionActual + conteoProductos) <= capacidadMaxima;
@@ -1321,7 +1473,8 @@ public class ALNSSolver {
 
                             solucionActual.put(pedido, rutaAleatoria);
                             actualizarCapacidadesVuelos(rutaAleatoria, conteoProductos);
-                            incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+                            actualizarCapacidadAeropuertos(aeropuertoDestino.getCodigoIATA(), conteoProductos);
+                            //incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
                             paquetesAsignados++;
                         }
                     }
@@ -1377,7 +1530,8 @@ public class ALNSSolver {
 
                     // Actualizar capacidades DESPUÉS de la validación
                     actualizarCapacidadesVuelos(mejorRuta, cantidadProductos);
-                    incrementarOcupacionAlmacen(aeropuertoDestino, cantidadProductos);
+                    actualizarCapacidadAeropuertos(aeropuertoDestino.getCodigoIATA(), cantidadProductos);
+                    //incrementarOcupacionAlmacen(aeropuertoDestino, cantidadProductos);
 
                     if (iteracion > 0) {
                         System.out.println("  Reasignado paquete " + pkg.getId() + " en iteración " + iteracion);
@@ -1419,7 +1573,7 @@ public class ALNSSolver {
     if (aeropuertoDestino == null) return false;
 
     int cantidadProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
-    int ocupacionActual = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
+    int ocupacionActual = aeropuertoDestino.getCapacidadActual();
     int capacidadMaxima = aeropuertoDestino.getCapacidadMaxima();
 
     return (ocupacionActual + cantidadProductos) <= capacidadMaxima;
@@ -1930,18 +2084,11 @@ public class ALNSSolver {
     }
 
     private double calcularUtilizacionAlmacenes() {
-        if (ocupacionAlmacenes.isEmpty()) return 0.0;
         double total = 0.0;
-        int valid = 0;
-        for (Map.Entry<Aeropuerto, Integer> e : ocupacionAlmacenes.entrySet()) {
-            Aeropuerto a = e.getKey();
-            int occ = e.getValue();
-            if (a.getCapacidadMaxima() > 0) {
-                total += (double) occ / a.getCapacidadMaxima();
-                valid++;
-            }
+        for(Aeropuerto aeropuerto : aeropuertos) {
+            total += (double) aeropuerto.getCapacidadActual() / aeropuerto.getCapacidadMaxima();
         }
-        return valid > 0 ? total / valid : 0.0;
+        return total;
     }
 
     private double calcularComplejidadRuteo(HashMap<Pedido, ArrayList<Vuelo>> mapaSolucion) {
@@ -2048,25 +2195,25 @@ public class ALNSSolver {
         }
 
         System.out.println("\n----- Ocupación de Almacenes -----");
+        reconstruirCapacidadesDesdeSolucion(solucionActual);
+        reconstruirAlmacenesDesdeSolucion(solucionActual);
         int totalCapacidad = 0, totalOcupacion = 0, almacenesAlMax = 0;
-        for (Map.Entry<Aeropuerto, Integer> e : ocupacionAlmacenes.entrySet()) {
-            Aeropuerto a = e.getKey();
-            int occ = e.getValue();
-            if (a.getCapacidadMaxima() > 0) {
-                int max = a.getCapacidadMaxima();
-                totalCapacidad += max;
-                totalOcupacion += occ;
-                if (occ >= max) almacenesAlMax++;
-                double porcentaje = (occ * 100.0) / max;
-                if (porcentaje > 80.0) {
-                    System.out.println("  " + a.getCiudad().getNombre() + ": " + occ + "/" + max + " (" + String.format("%.1f", porcentaje) + "%)");
-                }
-            }
+        for(Aeropuerto aeropuerto : aeropuertos) {
+            int max = aeropuerto.getCapacidadMaxima();
+            totalCapacidad += max;
+            totalOcupacion += aeropuerto.getCapacidadActual();
+            if (aeropuerto.getCapacidadActual() >= max) almacenesAlMax++;
+            double porcentaje = (aeropuerto.getCapacidadActual() * 100.0) / max;
+            //if (porcentaje > 80.0) {
+                System.out.println("  " + aeropuerto.getCiudad().getNombre() + " - " + aeropuerto.getCodigoIATA()
+                        + " : " + aeropuerto.getCapacidadActual()
+                        + "/" + max + " (" + String.format("%.1f", porcentaje) + "%)");
+            //}
         }
 
         double avgPorcentaje = totalCapacidad > 0 ? (totalOcupacion * 100.0) / totalCapacidad : 0.0;
-        System.out.println("Ocupación promedio de almacenes: " + String.format("%.1f", avgPorcentaje) + "%");
-        System.out.println("Almacenes llenos: " + almacenesAlMax + "/" + aeropuertos.size());
+        System.out.println("Ocupación promedio de aeropuertos: " + String.format("%.1f", avgPorcentaje) + "%");
+        System.out.println("Aeropuertos llenos: " + almacenesAlMax + "/" + aeropuertos.size());
 
         if (ocupacionTemporalAlmacenes != null && !ocupacionTemporalAlmacenes.isEmpty()) {
             System.out.println("\n----- Picos de Ocupación Temporal -----");
@@ -2152,24 +2299,11 @@ public class ALNSSolver {
         return String.format("%.1f", (valor * 100.0) / total);
     }
 
-    private void inicializarOcupacionAlmacenes() {
-        if (ocupacionAlmacenes == null) {
-            ocupacionAlmacenes = new HashMap<>();
-        }
-
+    private void inicializarCapacidadAeropuertos() {
         for (Aeropuerto a : aeropuertos) {
-            // si aún no está en el mapa, lo agregamos con ocupación inicial 0
-            ocupacionAlmacenes.putIfAbsent(a, 0);
+            a.setCapacidadActual(0);
         }
 
-//        System.out.println("Ocupación inicial de almacenes: " + ocupacionAlmacenes.size() + " aeropuertos cargados");
-//        System.out.println("----- DEBUG CAPACIDADES AEROPUERTOS -----");
-//
-//        for (Aeropuerto a : aeropuertos) {
-//            Integer occ = ocupacionAlmacenes.getOrDefault(a, null);
-//            System.out.println(a.getCodigoIATA() + " capActual=" + a.getCapacidadActual() + " ocupacionMap=" + occ);
-//        }
-//        System.out.println("-----------------------------------------");
     }
 
     private void inicializarOcupacionTemporalAlmacenes() {

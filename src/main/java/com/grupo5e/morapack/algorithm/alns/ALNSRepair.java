@@ -1,5 +1,6 @@
 package com.grupo5e.morapack.algorithm.alns;
 
+import com.grupo5e.morapack.core.constants.Constantes;
 import com.grupo5e.morapack.core.model.Pedido;
 import com.grupo5e.morapack.core.model.Vuelo;
 import com.grupo5e.morapack.core.model.Ciudad;
@@ -10,6 +11,8 @@ import java.util.*;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.stream.Collectors;
+
+import static java.lang.System.exit;
 
 /**
  * Clase que implementa operadores de reparación para el algoritmo ALNS
@@ -34,6 +37,16 @@ public class ALNSRepair {
         this.ocupacionAlmacenes = ocupacionAlmacenes;
         this.aeropuertoService = aeropuertoService;
         this.aleatorio = new Random(System.currentTimeMillis());
+
+        // VERIFICACIÓN DE DATOS
+        System.out.println("ALNSRepair inicializado con:");
+        System.out.println("  - Aeropuertos: " + this.aeropuertos.size());
+        System.out.println("  - Vuelos: " + this.vuelos.size());
+        System.out.println("  - Ocupación almacenes: " + this.ocupacionAlmacenes.size());
+
+        if (this.vuelos.isEmpty()) {
+            System.err.println("❌ ALERTA: ALNSRepair recibió lista de vuelos vacía");
+        }
     }
 
     /**
@@ -55,6 +68,10 @@ public class ALNSRepair {
     public ResultadoReparacion reparacionCodiciosa(
             HashMap<Pedido, ArrayList<Vuelo>> solucionParcial,
             ArrayList<Map.Entry<Pedido, ArrayList<Vuelo>>> paquetesDestruidos) {
+
+//        System.out.println("\n=== INICIANDO REPARACIÓN GREEDY ===");
+//        System.out.println("Paquetes a reparar: " + paquetesDestruidos.size());
+//        System.out.println("Solución parcial inicial: " + solucionParcial.size() + " paquetes");
 
         HashMap<Pedido, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
         ArrayList<Pedido> paquetesNoAsignados = new ArrayList<>();
@@ -95,25 +112,49 @@ public class ALNSRepair {
 
             // Obtener conteo de productos para este pedido
             int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
+            //System.out.println("Productos: " + conteoProductos);
 
             // Verificar capacidad del almacén
-            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
+            if (aeropuertoDestino == null) {
+                System.out.println("❌ ERROR: Aeropuerto destino no encontrado: " + pedido.getAeropuertoDestinoCodigo());
+                exit(1);
+            }
+
+            if (!tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
                 paquetesNoAsignados.add(pedido);
                 continue;
             }
 
             // Buscar la mejor ruta
             ArrayList<Vuelo> mejorRuta = encontrarMejorRuta(pedido);
-            if (mejorRuta != null && esRutaValida(pedido, mejorRuta, conteoProductos)) {
-                solucionReparada.put(pedido, mejorRuta);
-                actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
-                incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
-                conteoReinsertados++;
-            } else {
-                paquetesNoAsignados.add(pedido);
-            }
-        }
 
+            if (mejorRuta == null) {
+                System.out.println("❌ No se encontró ninguna ruta válida");
+                paquetesNoAsignados.add(pedido);
+                continue;
+            }
+
+            // Validar ruta
+            if (!esRutaValida(pedido, mejorRuta, conteoProductos)) {
+                System.out.println("❌ Ruta no válida (no cumple validaciones)");
+                paquetesNoAsignados.add(pedido);
+                continue;
+            }
+
+            solucionReparada.put(pedido, mejorRuta);
+            actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+            incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+            conteoReinsertados++;
+
+//            if (mejorRuta != null && esRutaValida(pedido, mejorRuta, conteoProductos)) {
+//                solucionReparada.put(pedido, mejorRuta);
+//                actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+//                incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+//                conteoReinsertados++;
+//            } else {
+//                paquetesNoAsignados.add(pedido);
+//            }
+        }
         System.out.println("Reparación Greedy: " + conteoReinsertados + "/" + paquetesParaReparar.size() +
                           " paquetes reinsertados");
 
@@ -150,10 +191,13 @@ public class ALNSRepair {
                 Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
                 int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
 
-                if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
+                if (aeropuertoDestino == null) {
+                    System.out.println("❌ Aeropuerto destino no encontrado para pedido: " + pedido.getId() + " " + pedido.getAeropuertoDestinoCodigo());
+                    exit(1);
+                }
+                if(!tieneCapacidadAlmacen(aeropuertoDestino,conteoProductos)){
                     continue;
                 }
-
                 // Encontrar las mejores rutas para este pedido
                 ArrayList<OpcionRuta> opcionesRuta = encontrarTodasLasOpcionesRuta(pedido);
 
@@ -217,6 +261,171 @@ public class ALNSRepair {
         return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
     }
 
+//    public ResultadoReparacion reparacionArrepentimiento(
+//            HashMap<Pedido, ArrayList<Vuelo>> solucionParcial,
+//            ArrayList<Map.Entry<Pedido, ArrayList<Vuelo>>> paquetesDestruidos,
+//            int nivelArrepentimiento) {
+//
+////        System.out.println("\n=== INICIANDO REPARACIÓN POR ARREPENTIMIENTO ===");
+////        System.out.println("Paquetes a reparar: " + paquetesDestruidos.size());
+////        System.out.println("Nivel de arrepentimiento: " + nivelArrepentimiento);
+////        System.out.println("Solución parcial inicial: " + solucionParcial.size() + " paquetes");
+//
+//        HashMap<Pedido, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
+//        ArrayList<Pedido> paquetesNoAsignados = new ArrayList<>();
+//
+//        ArrayList<Pedido> paquetesRestantes = new ArrayList<>();
+//        for (Map.Entry<Pedido, ArrayList<Vuelo>> entrada : paquetesDestruidos) {
+//            paquetesRestantes.add(entrada.getKey());
+//        }
+//
+//        int conteoReinsertados = 0;
+//        int iteracion = 0;
+//
+//        // Mientras haya paquetes por insertar
+//        while (!paquetesRestantes.isEmpty()) {
+//            iteracion++;
+////            System.out.println("\n--- Iteración " + iteracion + " ---");
+////            System.out.println("Paquetes restantes: " + paquetesRestantes.size());
+//
+//            Pedido mejorPedido = null;
+//            ArrayList<Vuelo> mejorRuta = null;
+//            double maxArrepentimiento = Double.NEGATIVE_INFINITY;
+//
+//            int sinCapacidadAlmacen = 0;
+//            int sinOpcionesRuta = 0;
+//            int conOpcionesRuta = 0;
+//
+//            // Calcular arrepentimiento para cada paquete restante
+//            for (Pedido pedido : paquetesRestantes) {
+////                System.out.println("\n  Analizando pedido " + pedido.getId() +
+////                        " (" + pedido.getAeropuertoOrigenCodigo() + " → " +
+////                        pedido.getAeropuertoDestinoCodigo() + ")");
+//
+//                Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
+//                int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
+//
+//                // Verificar capacidad del almacén
+//                if (aeropuertoDestino == null) {
+//                    System.out.println("    ❌ Aeropuerto destino no encontrado: " + pedido.getAeropuertoDestinoCodigo());
+//                    exit(1);
+//                }
+//
+//                if (!tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
+//                    //System.out.println("    ❌ Sin capacidad en almacén destino: " + aeropuertoDestino.getCodigoIATA());
+//                    paquetesNoAsignados.add(pedido);
+//                    continue;
+//                }
+//
+//                //System.out.println("    ✅ Capacidad almacén OK");
+//
+//                // Encontrar las mejores rutas para este pedido
+//                //System.out.println("    Buscando opciones de ruta...");
+//                ArrayList<OpcionRuta> opcionesRuta = encontrarTodasLasOpcionesRuta(pedido);
+//
+//                if (opcionesRuta.isEmpty()) {
+//                    System.out.println("    ❌ No se encontraron opciones de ruta");
+//                    continue;
+//                }
+//
+//                conOpcionesRuta++;
+//                //System.out.println("    ✅ " + opcionesRuta.size() + " opciones de ruta encontradas");
+//
+//                // Ordenar por margen de tiempo (mejor primero)
+//                opcionesRuta.sort((r1, r2) -> Double.compare(r2.margenTiempo, r1.margenTiempo));
+//
+//                // Calcular regret-k real
+//                double arrepentimiento = 0;
+//                int k = Math.max(2, nivelArrepentimiento);
+//                int limite = Math.min(k, opcionesRuta.size());
+//
+//                //System.out.println("    Calculando arrepentimiento (k=" + k + ", límite=" + limite + ")");
+//
+//                if (limite >= 2) {
+//                    double mejorMargen = opcionesRuta.get(0).margenTiempo;
+//                    //System.out.println("    Mejor margen: " + mejorMargen);
+//
+//                    for (int i = 1; i < limite; i++) {
+//                        double diferencia = mejorMargen - opcionesRuta.get(i).margenTiempo;
+//                        arrepentimiento += diferencia;
+//                        //System.out.println("      Diferencia con opción " + i + ": " + diferencia);
+//                    }
+//                } else if (opcionesRuta.size() == 1) {
+//                    // Solo una opción: usar urgencia basada en orderDate→deadline
+//                    //System.out.println("    Solo 1 opción, usando urgencia...");
+//                    if (pedido.getFechaPedido() != null && pedido.getFechaLimiteEntrega() != null) {
+//                        long horasHastaDeadline = ChronoUnit.HOURS.between(pedido.getFechaPedido(), pedido.getFechaLimiteEntrega());
+//                        arrepentimiento = Math.max(0, 72 - Math.min(72, horasHastaDeadline));
+//                        //System.out.println("    Horas hasta deadline: " + horasHastaDeadline + ", arrepentimiento: " + arrepentimiento);
+//                    } else {
+//                        arrepentimiento = 0;
+//                        //System.out.println("    Sin fechas, arrepentimiento: 0");
+//                    }
+//                }
+//
+//                // Añadir factor de urgencia al arrepentimiento
+//                LocalDateTime ahora = LocalDateTime.now();
+//                long horasHastaDeadline = ChronoUnit.HOURS.between(ahora, pedido.getFechaLimiteEntrega());
+//                double factorUrgencia = Math.max(1, 72.0 / Math.max(1, horasHastaDeadline));
+//                double arrepentimientoFinal = arrepentimiento * factorUrgencia;
+//
+////                System.out.println("    Arrepentimiento base: " + arrepentimiento);
+////                System.out.println("    Factor urgencia: " + factorUrgencia + " (horas hasta deadline: " + horasHastaDeadline + ")");
+////                System.out.println("    Arrepentimiento final: " + arrepentimientoFinal);
+////                System.out.println("    Arrepentimiento máximo actual: " + maxArrepentimiento);
+//
+//                if (arrepentimientoFinal > maxArrepentimiento) {
+//                    maxArrepentimiento = arrepentimientoFinal;
+//                    mejorPedido = pedido;
+//                    mejorRuta = opcionesRuta.get(0).ruta;
+//                    //System.out.println("    🎯 NUEVO MEJOR: Pedido " + pedido.getId() + " con arrepentimiento: " + arrepentimientoFinal);
+//                }
+//            }
+//
+////            System.out.println("\n  --- RESUMEN ITERACIÓN " + iteracion + " ---");
+////            System.out.println("  Sin capacidad almacén: " + sinCapacidadAlmacen);
+////            System.out.println("  Sin opciones ruta: " + sinOpcionesRuta);
+////            System.out.println("  Con opciones ruta: " + conOpcionesRuta);
+////            System.out.println("  Mejor arrepentimiento encontrado: " + maxArrepentimiento);
+//
+//            // Insertar el paquete con mayor arrepentimiento
+//            if (mejorPedido != null && mejorRuta != null) {
+//                //System.out.println("\n  Intentando insertar mejor pedido: " + mejorPedido.getId());
+//
+//                int conteoProductos = Math.max(1, mejorPedido.getProductos() != null ? mejorPedido.getProductos().size() : 1);
+//                //System.out.println("  Validando ruta...");
+//
+//                if (esRutaValida(mejorPedido, mejorRuta, conteoProductos)) {
+//                    solucionReparada.put(mejorPedido, mejorRuta);
+//                    actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+//                    incrementarOcupacionAlmacen(obtenerAeropuerto(mejorPedido.getAeropuertoDestinoCodigo()), conteoProductos);
+//                    paquetesRestantes.remove(mejorPedido);
+//                    conteoReinsertados++;
+//
+////                    System.out.println("  ✅ PEDIDO " + mejorPedido.getId() + " REINSERTADO EXITOSAMENTE");
+////                    System.out.println("  Ruta con " + mejorRuta.size() + " vuelos");
+//                } else {
+//                    //System.out.println("  ❌ Ruta no válida para pedido " + mejorPedido.getId());
+//                    paquetesRestantes.remove(mejorPedido);
+//                    paquetesNoAsignados.add(mejorPedido);
+//                }
+//            } else {
+//                // No se pudo insertar ningún paquete, agregar todos los restantes como no asignados
+////                System.out.println("\n  ❌ NO SE ENCONTRÓ NINGÚN PEDIDO VÁLIDO PARA INSERTAR");
+////                System.out.println("  Agregando " + paquetesRestantes.size() + " paquetes a no asignados");
+//                paquetesNoAsignados.addAll(paquetesRestantes);
+//                break;
+//            }
+//        }
+//
+//        System.out.println("\n=== RESUMEN FINAL REPARACIÓN POR ARREPENTIMIENTO ===");
+//        System.out.println("Total procesados: " + paquetesDestruidos.size());
+//        //System.out.println("Reinsertados: " + conteoReinsertados);
+//        System.out.println("No asignados: " + paquetesNoAsignados.size());
+//        //System.out.println("Iteraciones realizadas: " + iteracion);
+//
+//        return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
+//    }
     /**
      * Reparación por tiempo: Prioriza paquetes con deadlines más cercanos.
      */
@@ -247,15 +456,27 @@ public class ALNSRepair {
         // Insertar paquetes en orden de urgencia
         for (Pedido pedido : paquetesParaReparar) {
             Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
+            if (aeropuertoDestino == null) {
+                System.out.println("❌ Aeropuerto destino no encontrado para pedido: " + pedido.getId() + " " + pedido.getAeropuertoDestinoCodigo());
+                exit(1);
+            }
             int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
 
-            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
+            if (!tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
                 paquetesNoAsignados.add(pedido);
                 continue;
             }
 
             // Buscar ruta con mayor margen de tiempo
             ArrayList<Vuelo> mejorRuta = encontrarRutaConMaximoMargen(pedido);
+
+            if (mejorRuta != null && !esRutaValida(pedido, mejorRuta, conteoProductos)) {
+                System.out.println("⚠️ Ruta no válida para pedido: " + pedido.getId());
+            }
+            if (mejorRuta == null) {
+                System.out.println("⚠️ No se encontró ruta para pedido: " + pedido.getAeropuertoOrigenCodigo() +
+                        " → " + pedido.getAeropuertoDestinoCodigo());
+            }
             if (mejorRuta != null && esRutaValida(pedido, mejorRuta, conteoProductos)) {
                 solucionReparada.put(pedido, mejorRuta);
                 actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
@@ -272,6 +493,150 @@ public class ALNSRepair {
         return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
     }
 
+//    public ResultadoReparacion reparacionPorTiempo(
+//            HashMap<Pedido, ArrayList<Vuelo>> solucionParcial,
+//            ArrayList<Map.Entry<Pedido, ArrayList<Vuelo>>> paquetesDestruidos) {
+//
+//        System.out.println("\n=== INICIANDO REPARACIÓN POR TIEMPO ===");
+//        System.out.println("Paquetes a reparar: " + paquetesDestruidos.size());
+//        System.out.println("Solución parcial inicial: " + solucionParcial.size() + " paquetes");
+//
+//        HashMap<Pedido, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
+//        ArrayList<Pedido> paquetesNoAsignados = new ArrayList<>();
+//
+//        // Extraer paquetes y ordenar por urgencia (deadline más cercano primero)
+//        ArrayList<Pedido> paquetesParaReparar = new ArrayList<>();
+//        for (Map.Entry<Pedido, ArrayList<Vuelo>> entrada : paquetesDestruidos) {
+//            paquetesParaReparar.add(entrada.getKey());
+//        }
+//
+//        System.out.println("Ordenando paquetes por urgencia (deadline más cercano primero)...");
+//        paquetesParaReparar.sort((p1, p2) -> {
+//            // Ordenar por presupuesto real desde orderDate (nulls last)
+//            if (p1.getFechaPedido() == null || p1.getFechaLimiteEntrega() == null) return 1;
+//            if (p2.getFechaPedido() == null || p2.getFechaLimiteEntrega() == null) return -1;
+//            long horasP1 = ChronoUnit.HOURS.between(p1.getFechaPedido(), p1.getFechaLimiteEntrega());
+//            long horasP2 = ChronoUnit.HOURS.between(p2.getFechaPedido(), p2.getFechaLimiteEntrega());
+//            return Long.compare(horasP1, horasP2);
+//        });
+//
+//        int conteoReinsertados = 0;
+//        int sinCapacidadAlmacen = 0;
+//        int sinRutaMargen = 0;
+//        int rutaNoValida = 0;
+//        int erroresAeropuerto = 0;
+//
+//        System.out.println("Procesando " + paquetesParaReparar.size() + " paquetes por orden de urgencia...");
+//
+//        // Insertar paquetes en orden de urgencia
+//        for (Pedido pedido : paquetesParaReparar) {
+//            //System.out.println("\n--- Procesando pedido " + pedido.getId() + " (URGENTE) ---");
+//
+//            // Calcular y mostrar urgencia
+//            long horasDisponibles = 0;
+//            if (pedido.getFechaPedido() != null && pedido.getFechaLimiteEntrega() != null) {
+//                horasDisponibles = ChronoUnit.HOURS.between(pedido.getFechaPedido(), pedido.getFechaLimiteEntrega());
+//                System.out.println("⏰ Urgencia: " + horasDisponibles + " horas disponibles");
+//                System.out.println("   Fecha pedido: " + pedido.getFechaPedido());
+//                System.out.println("   Deadline: " + pedido.getFechaLimiteEntrega());
+//            } else {
+//                //System.out.println("⚠️ Sin información de fechas para calcular urgencia");
+//            }
+//
+//            System.out.println("Origen: " + pedido.getAeropuertoOrigenCodigo() +
+//                    " → Destino: " + pedido.getAeropuertoDestinoCodigo());
+//
+//            Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
+//            int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
+//            //System.out.println("Productos: " + conteoProductos);
+//
+//            // Verificar aeropuerto destino
+//            if (aeropuertoDestino == null) {
+//                //System.out.println("❌ ERROR: Aeropuerto destino no encontrado: " + pedido.getAeropuertoDestinoCodigo());
+//                erroresAeropuerto++;
+//                paquetesNoAsignados.add(pedido);
+//                continue;
+//            }
+//
+//            // Verificar capacidad del almacén
+//            System.out.println("Verificando capacidad en almacén " + aeropuertoDestino.getCodigoIATA() +
+//                    " (ocupación: " + ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0) +
+//                    "/" + aeropuertoDestino.getCapacidadMaxima() + ")");
+//
+//            if (!tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
+//                System.out.println("❌ SIN CAPACIDAD: Almacén " + aeropuertoDestino.getCodigoIATA() +
+//                        " - Ocupación: " + ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0) +
+//                        "/" + aeropuertoDestino.getCapacidadMaxima());
+//                sinCapacidadAlmacen++;
+//                paquetesNoAsignados.add(pedido);
+//                continue;
+//            }
+//
+//            System.out.println("✅ Capacidad de almacén OK");
+//
+//            // Buscar ruta con mayor margen de tiempo
+//            System.out.println("Buscando ruta con máximo margen de tiempo...");
+//            ArrayList<Vuelo> mejorRuta = encontrarRutaConMaximoMargen(pedido);
+//
+//            if (mejorRuta == null) {
+//                System.out.println("❌ No se encontró ninguna ruta con margen de tiempo adecuado");
+//                sinRutaMargen++;
+//                paquetesNoAsignados.add(pedido);
+//                continue;
+//            }
+//
+//            System.out.println("✅ Ruta encontrada con " + mejorRuta.size() + " vuelos");
+//
+//            // Mostrar información del margen de tiempo
+//            double margenTiempo = calcularMargenTiempoRuta(pedido, mejorRuta);
+//            System.out.println("Margen de tiempo de la ruta: " + margenTiempo + " horas");
+//
+//            // Mostrar detalles de la ruta
+//            //System.out.println("Detalles de la ruta:");
+//            double tiempoTotal = 0;
+//            for (int i = 0; i < mejorRuta.size(); i++) {
+//                Vuelo vuelo = mejorRuta.get(i);
+//                tiempoTotal += vuelo.getTiempoTransporte();
+//                System.out.println("  Vuelo " + (i+1) + ": " +
+//                        vuelo.getAeropuertoOrigen().getCodigoIATA() + " → " +
+//                        vuelo.getAeropuertoDestino().getCodigoIATA() +
+//                        " (" + vuelo.getTiempoTransporte() + " horas)");
+//            }
+//            if (mejorRuta.size() > 1) {
+//                tiempoTotal += (mejorRuta.size() - 1) * 2.0;
+//                System.out.println("  + Tiempo de conexiones: " + ((mejorRuta.size() - 1) * 2.0) + " horas");
+//            }
+//            System.out.println("  = Tiempo total: " + tiempoTotal + " horas");
+//
+//            // Validar ruta
+//            System.out.println("Validando ruta...");
+//            if (!esRutaValida(pedido, mejorRuta, conteoProductos)) {
+//                System.out.println("❌ Ruta no válida (no cumple validaciones)");
+//                rutaNoValida++;
+//                paquetesNoAsignados.add(pedido);
+//                continue;
+//            }
+//
+//            System.out.println("✅ Ruta válida - Insertando en solución...");
+//            solucionReparada.put(pedido, mejorRuta);
+//            actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+//            incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+//            conteoReinsertados++;
+//
+//            System.out.println("✅ Pedido " + pedido.getId() + " reinsertado exitosamente");
+//        }
+//
+//        System.out.println("\n=== RESUMEN REPARACIÓN POR TIEMPO ===");
+//        System.out.println("Total procesados: " + paquetesParaReparar.size());
+//        System.out.println("Reinsertados: " + conteoReinsertados);
+//        System.out.println("Sin capacidad almacén: " + sinCapacidadAlmacen);
+//        System.out.println("Sin ruta con margen: " + sinRutaMargen);
+//        System.out.println("Ruta no válida: " + rutaNoValida);
+//        System.out.println("Errores aeropuerto: " + erroresAeropuerto);
+//        System.out.println("No asignados: " + paquetesNoAsignados.size());
+//
+//        return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
+//    }
     /**
      * Reparación por capacidad: Prioriza rutas con mayor capacidad disponible.
      */
@@ -302,7 +667,11 @@ public class ALNSRepair {
             Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
             int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
 
-            if (aeropuertoDestino == null || !tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
+            if (aeropuertoDestino == null) {
+                System.out.println("❌ Aeropuerto destino no encontrado para pedido: " + pedido.getId() + " " + pedido.getAeropuertoDestinoCodigo());
+                exit(1);
+            }
+            if(!tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
                 paquetesNoAsignados.add(pedido);
                 continue;
             }
@@ -327,6 +696,127 @@ public class ALNSRepair {
 
     // ================= MÉTODOS AUXILIARES =================
 
+//    public ResultadoReparacion reparacionPorCapacidad(
+//            HashMap<Pedido, ArrayList<Vuelo>> solucionParcial,
+//            ArrayList<Map.Entry<Pedido, ArrayList<Vuelo>>> paquetesDestruidos) {
+//
+//        System.out.println("\n=== INICIANDO REPARACIÓN POR CAPACIDAD ===");
+//        System.out.println("Paquetes a reparar: " + paquetesDestruidos.size());
+//        System.out.println("Solución parcial inicial: " + solucionParcial.size() + " paquetes");
+//
+//        HashMap<Pedido, ArrayList<Vuelo>> solucionReparada = new HashMap<>(solucionParcial);
+//        ArrayList<Pedido> paquetesNoAsignados = new ArrayList<>();
+//
+//        ArrayList<Pedido> paquetesParaReparar = new ArrayList<>();
+//        for (Map.Entry<Pedido, ArrayList<Vuelo>> entrada : paquetesDestruidos) {
+//            paquetesParaReparar.add(entrada.getKey());
+//        }
+//
+//        System.out.println("Ordenando paquetes por deadline...");
+//        // Ordenar por deadline como criterio secundario
+//        // PATCH: Null-safe sorting
+//        paquetesParaReparar.sort((p1, p2) -> {
+//            if (p1.getFechaLimiteEntrega() == null && p2.getFechaLimiteEntrega() == null) return 0;
+//            if (p1.getFechaLimiteEntrega() == null) return 1; // nulls last
+//            if (p2.getFechaLimiteEntrega() == null) return -1; // nulls last
+//            return p1.getFechaLimiteEntrega().compareTo(p2.getFechaLimiteEntrega());
+//        });
+//
+//        int conteoReinsertados = 0;
+//        int sinCapacidadAlmacen = 0;
+//        int sinRutaCapacidad = 0;
+//        int rutaNoValida = 0;
+//        int erroresAeropuerto = 0;
+//
+//        System.out.println("Procesando " + paquetesParaReparar.size() + " paquetes...");
+//
+//        for (Pedido pedido : paquetesParaReparar) {
+//            System.out.println("\n--- Procesando pedido " + pedido.getId() + " ---");
+//            System.out.println("Origen: " + pedido.getAeropuertoOrigenCodigo() +
+//                    " → Destino: " + pedido.getAeropuertoDestinoCodigo());
+//
+//            Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
+//            int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
+//
+//            System.out.println("Productos: " + conteoProductos);
+//            System.out.println("Deadline: " + pedido.getFechaLimiteEntrega());
+//
+//            // Verificar aeropuerto destino
+//            if (aeropuertoDestino == null) {
+//                System.out.println("❌ ERROR: Aeropuerto destino no encontrado: " + pedido.getAeropuertoDestinoCodigo());
+//                erroresAeropuerto++;
+//                paquetesNoAsignados.add(pedido);
+//                continue;
+//            }
+//
+//            // Verificar capacidad del almacén
+//            System.out.println("Verificando capacidad en almacén " + aeropuertoDestino.getCodigoIATA() +
+//                    " (ocupación: " + ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0) +
+//                    "/" + aeropuertoDestino.getCapacidadMaxima() + ")");
+//
+//            if (!tieneCapacidadAlmacen(aeropuertoDestino, conteoProductos)) {
+//                System.out.println("❌ SIN CAPACIDAD: Almacén " + aeropuertoDestino.getCodigoIATA() +
+//                        " - Ocupación: " + ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0) +
+//                        "/" + aeropuertoDestino.getCapacidadMaxima());
+//                sinCapacidadAlmacen++;
+//                paquetesNoAsignados.add(pedido);
+//                continue;
+//            }
+//
+//            System.out.println("✅ Capacidad de almacén OK");
+//
+//            // Buscar ruta con mayor capacidad disponible
+//            System.out.println("Buscando ruta con máxima capacidad...");
+//            ArrayList<Vuelo> mejorRuta = encontrarRutaConMaximaCapacidad(pedido);
+//
+//            if (mejorRuta == null) {
+//                System.out.println("❌ No se encontró ninguna ruta con capacidad disponible");
+//                sinRutaCapacidad++;
+//                paquetesNoAsignados.add(pedido);
+//                continue;
+//            }
+//
+//            System.out.println("✅ Ruta encontrada con " + mejorRuta.size() + " vuelos");
+//
+//            // Mostrar información de capacidad de la ruta
+//            System.out.println("Capacidad de la ruta encontrada:");
+//            for (int i = 0; i < mejorRuta.size(); i++) {
+//                Vuelo vuelo = mejorRuta.get(i);
+//                System.out.println("  Vuelo " + (i+1) + ": " +
+//                        vuelo.getAeropuertoOrigen().getCodigoIATA() + " → " +
+//                        vuelo.getAeropuertoDestino().getCodigoIATA() +
+//                        " (" + vuelo.getCapacidadUsada() + "/" + vuelo.getCapacidadMaxima() + ")");
+//            }
+//
+//            // Validar ruta
+//            System.out.println("Validando ruta...");
+//            if (!esRutaValida(pedido, mejorRuta, conteoProductos)) {
+//                System.out.println("❌ Ruta no válida (no cumple validaciones)");
+//                rutaNoValida++;
+//                paquetesNoAsignados.add(pedido);
+//                continue;
+//            }
+//
+//            System.out.println("✅ Ruta válida - Insertando en solución...");
+//            solucionReparada.put(pedido, mejorRuta);
+//            actualizarCapacidadesVuelos(mejorRuta, conteoProductos);
+//            incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
+//            conteoReinsertados++;
+//
+//            System.out.println("✅ Pedido " + pedido.getId() + " reinsertado exitosamente");
+//        }
+//
+//        System.out.println("\n=== RESUMEN REPARACIÓN POR CAPACIDAD ===");
+//        System.out.println("Total procesados: " + paquetesParaReparar.size());
+//        System.out.println("Reinsertados: " + conteoReinsertados);
+//        System.out.println("Sin capacidad almacén: " + sinCapacidadAlmacen);
+//        System.out.println("Sin ruta con capacidad: " + sinRutaCapacidad);
+//        System.out.println("Ruta no válida: " + rutaNoValida);
+//        System.out.println("Errores aeropuerto: " + erroresAeropuerto);
+//        System.out.println("No asignados: " + paquetesNoAsignados.size());
+//
+//        return new ResultadoReparacion(solucionReparada, paquetesNoAsignados);
+//    }
     /**
      * Calcula la urgencia de un pedido específico para MoraPack
      * Considera promesas de entrega según continentes y tiempo restante
@@ -378,35 +868,48 @@ public class ALNSRepair {
 
     private ArrayList<OpcionRuta> encontrarTodasLasOpcionesRuta(Pedido pedido) {
         ArrayList<OpcionRuta> opciones = new ArrayList<>();
-        Ciudad origen = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad();
-        Ciudad destino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad();
+        String codigoOrigen = pedido.getAeropuertoOrigenCodigo();
+        String codigoDestino = pedido.getAeropuertoDestinoCodigo();
 
-        if (origen.equals(destino)) {
+        //System.out.println("\n    🔍 BUSCANDO RUTAS PARA: " + codigoOrigen + " → " + codigoDestino);
+
+        // VERIFICAR DATOS PRIMERO
+        //verificarVuelosDisponibles(codigoOrigen, codigoDestino);
+
+        if (codigoOrigen.equals(codigoDestino)) {
+            //System.out.println("    ✅ MISMO AEROPUERTO - RUTA VACÍA");
             opciones.add(new OpcionRuta(new ArrayList<>(), Double.MAX_VALUE));
             return opciones;
         }
 
         // Buscar ruta directa
-        ArrayList<Vuelo> rutaDirecta = encontrarRutaDirecta(origen, destino);
+        //System.out.println("\n    --- BUSCANDO RUTA DIRECTA ---");
+        ArrayList<Vuelo> rutaDirecta = encontrarRutaDirecta(codigoOrigen, codigoDestino);
         if (rutaDirecta != null && esRutaValida(pedido, rutaDirecta)) {
             double margen = calcularMargenTiempoRuta(pedido, rutaDirecta);
             opciones.add(new OpcionRuta(rutaDirecta, margen));
+            //System.out.println("    ✅ RUTA DIRECTA VÁLIDA - Margen: " + margen);
         }
 
         // Buscar rutas con una escala
-        ArrayList<Vuelo> rutaUnaEscala = encontrarRutaUnaEscala(origen, destino);
+        //System.out.println("\n    --- BUSCANDO RUTA CON 1 ESCALA ---");
+        ArrayList<Vuelo> rutaUnaEscala = encontrarRutaUnaEscala(codigoOrigen, codigoDestino);
         if (rutaUnaEscala != null && esRutaValida(pedido, rutaUnaEscala)) {
             double margen = calcularMargenTiempoRuta(pedido, rutaUnaEscala);
             opciones.add(new OpcionRuta(rutaUnaEscala, margen));
+            //System.out.println("    ✅ RUTA CON 1 ESCALA VÁLIDA - Margen: " + margen);
         }
 
         // Buscar rutas con dos escalas
-        ArrayList<Vuelo> rutaDosEscalas = encontrarRutaDosEscalas(origen, destino);
+        //System.out.println("\n    --- BUSCANDO RUTA CON 2 ESCALAS ---");
+        ArrayList<Vuelo> rutaDosEscalas = encontrarRutaDosEscalas(codigoOrigen, codigoDestino);
         if (rutaDosEscalas != null && esRutaValida(pedido, rutaDosEscalas)) {
             double margen = calcularMargenTiempoRuta(pedido, rutaDosEscalas);
             opciones.add(new OpcionRuta(rutaDosEscalas, margen));
+            //System.out.println("    ✅ RUTA CON 2 ESCALAS VÁLIDA - Margen: " + margen);
         }
 
+        //System.out.println("    📊 TOTAL OPCIONES ENCONTRADAS: " + opciones.size());
         return opciones;
     }
 
@@ -454,6 +957,70 @@ public class ALNSRepair {
         return opcionesCapacidad.get(0).ruta;
     }
 
+//    private ArrayList<Vuelo> encontrarRutaConMaximaCapacidad(Pedido pedido) {
+//        System.out.println("    Buscando ruta con máxima capacidad para pedido " + pedido.getId());
+//
+//        ArrayList<OpcionRuta> opciones = encontrarTodasLasOpcionesRuta(pedido);
+//        if (opciones.isEmpty()) {
+//            //System.out.println("    ❌ No hay opciones de ruta disponibles");
+//            return null;
+//        }
+//
+//        System.out.println("    " + opciones.size() + " opciones de ruta encontradas");
+//
+//        // Calcular capacidad disponible para cada ruta
+//        ArrayList<OpcionCapacidadRuta> opcionesCapacidad = new ArrayList<>();
+//        for (OpcionRuta opcion : opciones) {
+//            double capacidadTotal = 0;
+//            double capacidadUsada = 0;
+//            double capacidadMinimaDisponible = Double.MAX_VALUE;
+//
+//            System.out.println("    Analizando ruta con " + opcion.ruta.size() + " vuelos:");
+//
+//            for (Vuelo vuelo : opcion.ruta) {
+//                capacidadTotal += vuelo.getCapacidadMaxima();
+//                capacidadUsada += vuelo.getCapacidadUsada();
+//                double capacidadDisponibleVuelo = vuelo.getCapacidadMaxima() - vuelo.getCapacidadUsada();
+//                capacidadMinimaDisponible = Math.min(capacidadMinimaDisponible, capacidadDisponibleVuelo);
+//
+//                System.out.println("      " + vuelo.getAeropuertoOrigen().getCodigoIATA() + " → " +
+//                        vuelo.getAeropuertoDestino().getCodigoIATA() +
+//                        " - Usada: " + vuelo.getCapacidadUsada() +
+//                        "/Max: " + vuelo.getCapacidadMaxima() +
+//                        " (Disponible: " + capacidadDisponibleVuelo + ")");
+//            }
+//
+//            double ratioCapacidadDisponible = (capacidadTotal - capacidadUsada) / Math.max(1, capacidadTotal);
+//            System.out.println("    Ratio capacidad disponible: " + String.format("%.2f", ratioCapacidadDisponible * 100) + "%");
+//            System.out.println("    Capacidad mínima disponible en un vuelo: " + capacidadMinimaDisponible);
+//            System.out.println("    Margen de tiempo: " + opcion.margenTiempo);
+//
+//            opcionesCapacidad.add(new OpcionCapacidadRuta(opcion.ruta, ratioCapacidadDisponible, opcion.margenTiempo));
+//        }
+//
+//        // Ordenar por capacidad disponible, pero considerando también el margen de tiempo
+//        opcionesCapacidad.sort((r1, r2) -> {
+//            // Priorizar rutas con capacidad disponible, pero no sacrificar entregas a tiempo
+//            if (r1.margenTiempo <= 0 && r2.margenTiempo > 0) {
+//                System.out.println("    Priorizando ruta 2 por margen de tiempo positivo");
+//                return 1;
+//            }
+//            if (r2.margenTiempo <= 0 && r1.margenTiempo > 0) {
+//                System.out.println("    Priorizando ruta 1 por margen de tiempo positivo");
+//                return -1;
+//            }
+//
+//            int comparacion = Double.compare(r2.capacidadDisponible, r1.capacidadDisponible);
+//            System.out.println("    Comparando capacidad: " + r1.capacidadDisponible + " vs " + r2.capacidadDisponible + " = " + comparacion);
+//            return comparacion;
+//        });
+//
+//        ArrayList<Vuelo> mejorRuta = opcionesCapacidad.get(0).ruta;
+//        System.out.println("    ✅ Mejor ruta seleccionada con capacidad disponible: " +
+//                String.format("%.2f", opcionesCapacidad.get(0).capacidadDisponible * 100) + "%");
+//
+//        return mejorRuta;
+//    }
     /**
      * PATCH: Calcula margen sin doble conteo y usando fechaPedido
      */
@@ -499,34 +1066,123 @@ public class ALNSRepair {
      * PATCH: Versión con cantidad específica de productos
      */
     private boolean esRutaValida(Pedido pedido, ArrayList<Vuelo> ruta, int cantidad) {
+        //System.out.println("  Validando ruta para pedido " + pedido.getId() + "...");
+
         if (ruta == null || ruta.isEmpty()) {
-            return obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad().
+            boolean mismoAeropuerto = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad().
                     equals(obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad());
+            System.out.println("  Ruta vacía - Mismo aeropuerto: " + mismoAeropuerto);
+            return mismoAeropuerto;
         }
 
         // Verificar capacidad de vuelos con cantidad específica
         if (!cabeEnCapacidadRuta(ruta, cantidad)) {
+            System.out.println("  ❌ No cabe en capacidad de vuelos");
             return false;
         }
+        //System.out.println("  ✅ Capacidad de vuelos OK");
 
         // Verificar continuidad de ruta
         Ciudad ubicacionActual = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad();
-        for (Vuelo vuelo : ruta) {
+        for (int i = 0; i < ruta.size(); i++) {
+            Vuelo vuelo = ruta.get(i);
             Aeropuerto aeropuertoActual = obtenerAeropuertoPorCiudad(ubicacionActual);
-            if (!vuelo.getAeropuertoOrigen().equals(aeropuertoActual)) {
+
+            if (!vuelo.getAeropuertoOrigen().getCodigoIATA().equals(aeropuertoActual.getCodigoIATA())) {
+//                System.out.println("  ❌ Discontinuidad en vuelo " + i +
+//                        ": esperado " + aeropuertoActual.getCodigoIATA() +
+//                        ", encontrado " + vuelo.getAeropuertoOrigen().getCodigoIATA());
                 return false;
             }
             ubicacionActual = obtenerCiudadPorAeropuerto(vuelo.getAeropuertoDestino());
         }
 
-        if (!ubicacionActual.equals(obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad())) {
+        Ciudad destinoFinal = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad();
+        if (!ubicacionActual.getNombre().equals(destinoFinal.getNombre())) {
+            //System.out.println("  ❌ Destino final incorrecto: " + ubicacionActual.getNombre() +
+                    //" vs " + destinoFinal.getNombre());
             return false;
         }
+        //System.out.println("  ✅ Continuidad de ruta OK");
 
         // Verificar deadline
-        return seRespetaDeadline(pedido, ruta);
-    }
+        boolean deadlineOk = seRespetaDeadline(pedido, ruta);
+        //System.out.println("  ✅ Deadline respetado: " + deadlineOk);
 
+        return deadlineOk;
+    }
+    /**
+     * PATCH: Versión con cantidad específica de productos
+     */
+
+//    private boolean esRutaValida(Pedido pedido, ArrayList<Vuelo> ruta, int cantidad) {
+//        System.out.println("  🛂 VALIDANDO RUTA para pedido " + pedido.getId());
+//
+//        if (ruta == null || ruta.isEmpty()) {
+//            System.out.println("  ❌ Ruta nula o vacía");
+//            boolean mismoAeropuerto = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad().
+//                    equals(obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad());
+//            System.out.println("  Mismo aeropuerto: " + mismoAeropuerto);
+//            return mismoAeropuerto;
+//        }
+//
+//        System.out.println("  Ruta con " + ruta.size() + " vuelos:");
+//        for (int i = 0; i < ruta.size(); i++) {
+//            Vuelo v = ruta.get(i);
+//            System.out.println("    Vuelo " + (i+1) + ": " +
+//                    v.getAeropuertoOrigen().getCodigoIATA() + " → " +
+//                    v.getAeropuertoDestino().getCodigoIATA());
+//        }
+//
+//        // Verificar capacidad de vuelos con cantidad específica
+//        System.out.println("  Verificando capacidad...");
+//        if (!cabeEnCapacidadRuta(ruta, cantidad)) {
+//            System.out.println("  ❌ No cabe en capacidad de vuelos");
+//            return false;
+//        }
+//        System.out.println("  ✅ Capacidad de vuelos OK");
+//
+//        // Verificar continuidad de ruta
+//        System.out.println("  Verificando continuidad...");
+//        Ciudad ubicacionActual = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad();
+//        System.out.println("  Ubicación inicial: " + ubicacionActual.getNombre());
+//
+//        for (int i = 0; i < ruta.size(); i++) {
+//            Vuelo vuelo = ruta.get(i);
+//            Aeropuerto aeropuertoActual = obtenerAeropuertoPorCiudad(ubicacionActual);
+//
+//            System.out.println("    Vuelo " + (i+1) + ":");
+//            System.out.println("      Origen esperado: " + aeropuertoActual.getCodigoIATA());
+//            System.out.println("      Origen real: " + vuelo.getAeropuertoOrigen().getCodigoIATA());
+//
+//            if (!vuelo.getAeropuertoOrigen().getCodigoIATA().equals(aeropuertoActual.getCodigoIATA())) {
+//                System.out.println("    ❌ Discontinuidad en vuelo " + i +
+//                        ": esperado " + aeropuertoActual.getCodigoIATA() +
+//                        ", encontrado " + vuelo.getAeropuertoOrigen().getCodigoIATA());
+//                return false;
+//            }
+//            ubicacionActual = obtenerCiudadPorAeropuerto(vuelo.getAeropuertoDestino());
+//            System.out.println("      Nuevo ubicación: " + ubicacionActual.getNombre());
+//        }
+//
+//        Ciudad destinoFinal = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad();
+//        System.out.println("  Destino final esperado: " + destinoFinal.getNombre());
+//        System.out.println("  Destino final alcanzado: " + ubicacionActual.getNombre());
+//
+//        if (!ubicacionActual.getNombre().equals(destinoFinal.getNombre())) {
+//            System.out.println("  ❌ Destino final incorrecto: " + ubicacionActual.getNombre() +
+//                    " vs " + destinoFinal.getNombre());
+//            return false;
+//        }
+//        System.out.println("  ✅ Continuidad de ruta OK");
+//
+//        // Verificar deadline
+//        System.out.println("  Verificando deadline...");
+//        boolean deadlineOk = seRespetaDeadline(pedido, ruta);
+//        System.out.println("  ✅ Deadline respetado: " + deadlineOk);
+//
+//        return deadlineOk;
+//    }
     /**
      * PATCH: Versión original que delega calculando cantidad
      */
@@ -539,6 +1195,8 @@ public class ALNSRepair {
      * CORRECCIÓN: Aplicar las mismas correcciones que Solution.java
      */
     private boolean seRespetaDeadline(Pedido pedido, ArrayList<Vuelo> ruta) {
+        //System.out.println("    Validando deadline para pedido " + pedido.getId() + "...");
+
         double tiempoTotal = 0;
 
         // CORRECCIÓN: Solo usar transportTime de vuelos (sin doble conteo)
@@ -551,73 +1209,89 @@ public class ALNSRepair {
             tiempoTotal += (ruta.size() - 1) * 2.0;
         }
 
+        //System.out.println("    Tiempo total ruta: " + tiempoTotal + " horas");
+
         // CORRECCIÓN: Validar promesas MoraPack explícitamente
         Ciudad origen = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad();
         Ciudad destino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad();
         boolean rutaMismoContinente = origen.getContinente() == destino.getContinente();
-        long promesaHorasMoraPack = rutaMismoContinente ? 48 : 72; // 2 días intra / 3 días inter
+        long promesaHorasMoraPack = rutaMismoContinente ? 48 : 72;
+
+//        System.out.println("    Promesa MoraPack: " + promesaHorasMoraPack + " horas");
+//        System.out.println("    Mismo continente: " + rutaMismoContinente);
 
         if (tiempoTotal > promesaHorasMoraPack) {
-            return false; // Excede promesa MoraPack
-        }
-
-        // Factor de seguridad
-        if (aleatorio != null) {
-            int factorComplejidad = ruta.size() + (rutaMismoContinente ? 0 : 2);
-            double margenSeguridad = 0.01 * (1 + aleatorio.nextInt(factorComplejidad * 3));
-            tiempoTotal = tiempoTotal * (1.0 + margenSeguridad);
+            //System.out.println("    ❌ Excede promesa MoraPack: " + tiempoTotal + " > " + promesaHorasMoraPack);
+            return false;
         }
 
         // CORRECCIÓN: Usar orderDate en lugar de "now"
         long horasHastaDeadline = ChronoUnit.HOURS.between(pedido.getFechaPedido(), pedido.getFechaLimiteEntrega());
+        //System.out.println("    Horas hasta deadline: " + horasHastaDeadline);
 
-        return tiempoTotal <= horasHastaDeadline;
+        boolean resultado = tiempoTotal <= horasHastaDeadline;
+        //System.out.println("    ✅ Deadline respetado: " + resultado + " (" + tiempoTotal + " <= " + horasHastaDeadline + ")");
+
+        return resultado;
     }
 
     // Métodos de búsqueda de rutas (simplificados, podrían referenciar a Solution.java)
-    private ArrayList<Vuelo> encontrarRutaDirecta(Ciudad origen, Ciudad destino) {
-        Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
-        Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
+    private ArrayList<Vuelo> encontrarRutaDirecta(String codigoOrigen, String codigoDestino) {
+        Aeropuerto aeropuertoOrigen = obtenerAeropuerto(codigoOrigen);
+        Aeropuerto aeropuertoDestino = obtenerAeropuerto(codigoDestino);
 
-        if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
+        if (aeropuertoOrigen == null || aeropuertoDestino == null) {
+            System.out.println("❌ ERROR: Aeropuertos no encontrados - Origen: " + codigoOrigen + ", Destino: " + codigoDestino);
+            return null;
+        }
+
+        //System.out.println("    Buscando ruta directa: " + aeropuertoOrigen.getCodigoIATA() + " → " + aeropuertoDestino.getCodigoIATA());
 
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().equals(aeropuertoOrigen) &&
-                vuelo.getAeropuertoDestino().equals(aeropuertoDestino) &&
-                vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
+            boolean mismoOrigen = vuelo.getAeropuertoOrigen().getCodigoIATA().equals(aeropuertoOrigen.getCodigoIATA());
+            boolean mismoDestino = vuelo.getAeropuertoDestino().getCodigoIATA().equals(aeropuertoDestino.getCodigoIATA());
+
+            if (mismoOrigen && mismoDestino) {
+//                System.out.println("    ✅ VUELO DIRECTO ENCONTRADO: " +
+//                        vuelo.getAeropuertoOrigen().getCodigoIATA() + " → " +
+//                        vuelo.getAeropuertoDestino().getCodigoIATA() +
+//                        " (Cap: " + vuelo.getCapacidadUsada() + "/" + vuelo.getCapacidadMaxima() + ")");
 
                 ArrayList<Vuelo> ruta = new ArrayList<>();
                 ruta.add(vuelo);
                 return ruta;
             }
         }
+
+        //System.out.println("    ❌ No se encontró vuelo directo");
         return null;
     }
 
-    private ArrayList<Vuelo> encontrarRutaUnaEscala(Ciudad origen, Ciudad destino) {
-        Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
-        Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
+    private ArrayList<Vuelo> encontrarRutaUnaEscala(String codigoOrigen, String codigoDestino) {
+        Aeropuerto aeropuertoOrigen = obtenerAeropuerto(codigoOrigen);
+        Aeropuerto aeropuertoDestino = obtenerAeropuerto(codigoDestino);
 
-        if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
-
-        // Crear lista de aeropuertos intermedios y barajarla
-        ArrayList<Aeropuerto> intermedios = new ArrayList<>();
-        for (Aeropuerto aeropuerto : aeropuertos) {
-            if (!aeropuerto.equals(aeropuertoOrigen) && !aeropuerto.equals(aeropuertoDestino)) {
-                intermedios.add(aeropuerto);
-            }
+        if (aeropuertoOrigen == null || aeropuertoDestino == null) {
+            System.out.println("❌ ERROR: Aeropuertos no encontrados para ruta con escala");
+            return null;
         }
-        Collections.shuffle(intermedios, aleatorio);
 
-        for (Aeropuerto intermedio : intermedios) {
+        //System.out.println("    Buscando ruta con 1 escala: " + codigoOrigen + " → ? → " + codigoDestino);
+
+        // Buscar todos los posibles aeropuertos intermedios
+        for (Aeropuerto intermedio : aeropuertos) {
+            if (intermedio.getCodigoIATA().equals(aeropuertoOrigen.getCodigoIATA()) ||
+                    intermedio.getCodigoIATA().equals(aeropuertoDestino.getCodigoIATA())) {
+                continue;
+            }
+
             Vuelo primerVuelo = null;
             Vuelo segundoVuelo = null;
 
-            // Buscar primer segmento
+            // Buscar primer tramo: Origen → Intermedio
             for (Vuelo vuelo : vuelos) {
-                if (vuelo.getAeropuertoOrigen().equals(aeropuertoOrigen) &&
-                    vuelo.getAeropuertoDestino().equals(intermedio) &&
-                    vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
+                if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(aeropuertoOrigen.getCodigoIATA()) &&
+                        vuelo.getAeropuertoDestino().getCodigoIATA().equals(intermedio.getCodigoIATA())) {
                     primerVuelo = vuelo;
                     break;
                 }
@@ -625,17 +1299,22 @@ public class ALNSRepair {
 
             if (primerVuelo == null) continue;
 
-            // Buscar segundo segmento
+            // Buscar segundo tramo: Intermedio → Destino
             for (Vuelo vuelo : vuelos) {
-                if (vuelo.getAeropuertoOrigen().equals(intermedio) &&
-                    vuelo.getAeropuertoDestino().equals(aeropuertoDestino) &&
-                    vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
+                if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(intermedio.getCodigoIATA()) &&
+                        vuelo.getAeropuertoDestino().getCodigoIATA().equals(aeropuertoDestino.getCodigoIATA())) {
                     segundoVuelo = vuelo;
                     break;
                 }
             }
 
             if (segundoVuelo != null) {
+//                System.out.println("    ✅ RUTA CON 1 ESCALA ENCONTRADA:");
+//                System.out.println("      1. " + primerVuelo.getAeropuertoOrigen().getCodigoIATA() +
+//                        " → " + primerVuelo.getAeropuertoDestino().getCodigoIATA());
+//                System.out.println("      2. " + segundoVuelo.getAeropuertoOrigen().getCodigoIATA() +
+//                        " → " + segundoVuelo.getAeropuertoDestino().getCodigoIATA());
+
                 ArrayList<Vuelo> ruta = new ArrayList<>();
                 ruta.add(primerVuelo);
                 ruta.add(segundoVuelo);
@@ -643,19 +1322,21 @@ public class ALNSRepair {
             }
         }
 
+        System.out.println("    ❌ No se encontró ruta con 1 escala");
         return null;
     }
 
-    private ArrayList<Vuelo> encontrarRutaDosEscalas(Ciudad origen, Ciudad destino) {
-        Aeropuerto aeropuertoOrigen = obtenerAeropuertoPorCiudad(origen);
-        Aeropuerto aeropuertoDestino = obtenerAeropuertoPorCiudad(destino);
+    private ArrayList<Vuelo> encontrarRutaDosEscalas(String codigoOrigen, String codigoDestino) {
+        Aeropuerto aeropuertoOrigen = obtenerAeropuerto(codigoOrigen);
+        Aeropuerto aeropuertoDestino = obtenerAeropuerto(codigoDestino);
 
         if (aeropuertoOrigen == null || aeropuertoDestino == null) return null;
 
         // Simplificado: buscar solo algunas combinaciones aleatorias para eficiencia
         ArrayList<Aeropuerto> candidatos = new ArrayList<>();
         for (Aeropuerto aeropuerto : aeropuertos) {
-            if (!aeropuerto.equals(aeropuertoOrigen) && !aeropuerto.equals(aeropuertoDestino)) {
+            if (!aeropuerto.getCodigoIATA().equals(aeropuertoOrigen.getCodigoIATA()) &&
+                    !aeropuerto.getCodigoIATA().equals(aeropuertoDestino.getCodigoIATA())) {
                 candidatos.add(aeropuerto);
             }
         }
@@ -687,8 +1368,8 @@ public class ALNSRepair {
 
         // Buscar vuelo 1: origen -> primero
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().equals(origen) &&
-                vuelo.getAeropuertoDestino().equals(primero) &&
+            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(origen.getCodigoIATA()) &&
+                vuelo.getAeropuertoDestino().getCodigoIATA().equals(primero.getCodigoIATA()) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo1 = vuelo;
                 break;
@@ -699,8 +1380,8 @@ public class ALNSRepair {
 
         // Buscar vuelo 2: primero -> segundo
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().equals(primero) &&
-                vuelo.getAeropuertoDestino().equals(segundo) &&
+            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(primero.getCodigoIATA()) &&
+                vuelo.getAeropuertoDestino().getCodigoIATA().equals(segundo.getCodigoIATA()) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo2 = vuelo;
                 break;
@@ -711,8 +1392,8 @@ public class ALNSRepair {
 
         // Buscar vuelo 3: segundo -> destino
         for (Vuelo vuelo : vuelos) {
-            if (vuelo.getAeropuertoOrigen().equals(segundo) &&
-                vuelo.getAeropuertoDestino().equals(destino) &&
+            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(segundo.getCodigoIATA()) &&
+                vuelo.getAeropuertoDestino().getCodigoIATA().equals(destino.getCodigoIATA()) &&
                 vuelo.getCapacidadUsada() < vuelo.getCapacidadMaxima()) {
                 vuelo3 = vuelo;
                 break;
@@ -752,12 +1433,31 @@ public class ALNSRepair {
     }
 
     private boolean tieneCapacidadAlmacen(Aeropuerto aeropuertoDestino, int conteoProductos) {
-        if (aeropuertoDestino.getCapacidadActual() == 0) {
+        if (aeropuertoDestino == null) return false;
+
+        // Evitar null en el mapa
+        if (!ocupacionAlmacenes.containsKey(aeropuertoDestino)) {
+            ocupacionAlmacenes.put(aeropuertoDestino, 0);
+        }
+
+        int capacidad = aeropuertoDestino.getCapacidadMaxima();
+        int ocupacion = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
+
+        // Si la capacidad del aeropuerto es 0, se considera sin espacio
+        if (capacidad == 0) {
+            if (Constantes.LOGGING_VERBOSO)
+                System.out.println("⚠️ Aeropuerto " + aeropuertoDestino.getCodigoIATA() + " tiene capacidad 0.");
             return false;
         }
 
-        int ocupacionActual = ocupacionAlmacenes.getOrDefault(aeropuertoDestino, 0);
-        return (ocupacionActual + conteoProductos) <= aeropuertoDestino.getCapacidadActual();
+        boolean tieneEspacio = (ocupacion + conteoProductos) <= capacidad;
+
+        if (!tieneEspacio && Constantes.LOGGING_VERBOSO) {
+            System.out.println("⚠️ Sin capacidad en almacén destino: " + aeropuertoDestino.getCodigoIATA() +
+                    " (ocup=" + ocupacion + ", cap=" + capacidad + ", solicitados=" + conteoProductos + ")");
+        }
+
+        return tieneEspacio;
     }
 
     private void actualizarCapacidadesVuelos(ArrayList<Vuelo> ruta, int conteoProductos) {
@@ -838,6 +1538,7 @@ public class ALNSRepair {
             if (aeropuerto != null &&
                     aeropuerto.getCodigoIATA() != null &&
                     aeropuerto.getCodigoIATA().equalsIgnoreCase(codigoIATA.trim())) {
+                //System.out.println("✅ Aeropuerto encontrado: " + codigoIATA);
                 return aeropuerto;
             }
         }
@@ -851,5 +1552,62 @@ public class ALNSRepair {
                         .collect(Collectors.joining(", ")));
 
         return null;
+    }
+
+    private void verificarVuelosDisponibles(String codigoOrigen, String codigoDestino) {
+        System.out.println("\n🔍 VERIFICANDO VUELOS DISPONIBLES:");
+        System.out.println("Buscando vuelos desde " + codigoOrigen + " hacia " + codigoDestino);
+
+        Aeropuerto origen = obtenerAeropuerto(codigoOrigen);
+        Aeropuerto destino = obtenerAeropuerto(codigoDestino);
+
+        if (origen == null) {
+            System.out.println("❌ ERROR: Aeropuerto origen " + codigoOrigen + " no encontrado");
+            return;
+        }
+        if (destino == null) {
+            System.out.println("❌ ERROR: Aeropuerto destino " + codigoDestino + " no encontrado");
+            return;
+        }
+
+        // Verificar vuelos directos
+        System.out.println("Vuelos directos:");
+        boolean hayDirectos = false;
+        for (Vuelo vuelo : vuelos) {
+            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(origen.getCodigoIATA()) &&
+                    vuelo.getAeropuertoDestino().getCodigoIATA().equals(destino.getCodigoIATA())) {
+                System.out.println("  ✅ " + vuelo.getAeropuertoOrigen().getCodigoIATA() +
+                        " → " + vuelo.getAeropuertoDestino().getCodigoIATA() +
+                        " - Capacidad: " + vuelo.getCapacidadUsada() + "/" + vuelo.getCapacidadMaxima());
+                hayDirectos = true;
+            }
+        }
+        if (!hayDirectos) System.out.println("  ❌ No hay vuelos directos");
+
+        // Verificar vuelos desde origen
+        System.out.println("Todos los vuelos desde " + codigoOrigen + ":");
+        int vuelosDesdeOrigen = 0;
+        for (Vuelo vuelo : vuelos) {
+            if (vuelo.getAeropuertoOrigen().getCodigoIATA().equals(origen.getCodigoIATA())) {
+                System.out.println("  ✈️  " + vuelo.getAeropuertoOrigen().getCodigoIATA() +
+                        " → " + vuelo.getAeropuertoDestino().getCodigoIATA() +
+                        " - Cap: " + vuelo.getCapacidadUsada() + "/" + vuelo.getCapacidadMaxima());
+                vuelosDesdeOrigen++;
+            }
+        }
+        System.out.println("  Total vuelos desde " + codigoOrigen + ": " + vuelosDesdeOrigen);
+
+        // Verificar vuelos hacia destino
+        System.out.println("Todos los vuelos hacia " + codigoDestino + ":");
+        int vuelosHaciaDestino = 0;
+        for (Vuelo vuelo : vuelos) {
+            if (vuelo.getAeropuertoDestino().getCodigoIATA().equals(destino.getCodigoIATA())) {
+                System.out.println("  ✈️  " + vuelo.getAeropuertoOrigen().getCodigoIATA() +
+                        " → " + vuelo.getAeropuertoDestino().getCodigoIATA() +
+                        " - Cap: " + vuelo.getCapacidadUsada() + "/" + vuelo.getCapacidadMaxima());
+                vuelosHaciaDestino++;
+            }
+        }
+        System.out.println("  Total vuelos hacia " + codigoDestino + ": " + vuelosHaciaDestino);
     }
 }

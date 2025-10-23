@@ -15,12 +15,7 @@ import com.grupo5e.morapack.utils.LectorPedidos;
 import com.grupo5e.morapack.utils.LectorCancelaciones;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.List;
+import java.util.*;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.stream.Collectors;
@@ -102,9 +97,17 @@ public class ALNSSolver {
         this.vueloService = vueloService;
 
         //inicializr primero las listas
-        this.aeropuertos = new ArrayList<>(aeropuertoService.listar());
-        this.vuelos = new ArrayList<>(vueloService.listar());
         this.pedidosOriginales = new ArrayList<>(pedidoService.listar());
+        this.aeropuertos = new ArrayList<>(aeropuertoService.listar());
+        // VERIFICAR CAPACIDADES DE AEROPUERTOS
+        System.out.println("=== VERIFICACIÓN DE CAPACIDADES DE AEROPUERTOS ===");
+        for (Aeropuerto a : this.aeropuertos) {
+            if (a.getCapacidadMaxima() <= 0) {
+                System.out.println("❌ PROBLEMA: Aeropuerto " + a.getCodigoIATA() +
+                        " tiene capacidad: " + a.getCapacidadMaxima());
+            }
+        }
+        this.vuelos = new ArrayList<>(vueloService.listar());
 
         //ASIGNAR AEROPUERTO ORIGEN ALEATORIO A PEDIDOS
         asignarAeropuertosOrigen();
@@ -121,7 +124,9 @@ public class ALNSSolver {
         this.ocupacionAlmacenes = new HashMap<>();
         this.ocupacionTemporalAlmacenes = new HashMap<>();
 
+        //CREA UN MAPA del nombre del nombre de la ciudad y su aeropuerto ("lima",Clase aeropuerto "SPIM")
         inicializarCacheCiudadAeropuerto();
+        //HACE QUE EL RELOJ empiece en el pedido con fecha más antigua CUANDO SE EJECUTA EL ALGORITMO
         inicializarT0();
 
         this.aleatorio = new Random(System.currentTimeMillis());
@@ -139,6 +144,30 @@ public class ALNSSolver {
 
         // Inicializar optimizaciones de rendimiento
         inicializarOptimizaciones();
+
+        // DEBUG: Verificar vuelos disponibles
+        System.out.println("=== VERIFICACIÓN DE VUELOS ===");
+        System.out.println("Total vuelos cargados: " + this.vuelos.size());
+
+//        // Buscar vuelos desde UBBB
+//        System.out.println("Vuelos desde UBBB (Bakú):");
+//        this.vuelos.stream()
+//                .filter(v -> v.getAeropuertoOrigen().getCodigoIATA().equals("UBBB"))
+//                .forEach(v -> System.out.println("  → " + v.getAeropuertoDestino().getCodigoIATA() +
+//                        " - Cap: " + v.getCapacidadUsada() + "/" + v.getCapacidadMaxima()));
+//
+//        // Buscar vuelos hacia SLLP
+//        System.out.println("Vuelos hacia SLLP (La Paz):");
+//        this.vuelos.stream()
+//                .filter(v -> v.getAeropuertoDestino().getCodigoIATA().equals("SLLP"))
+//                .forEach(v -> System.out.println("  ← " + v.getAeropuertoOrigen().getCodigoIATA() +
+//                        " - Cap: " + v.getCapacidadUsada() + "/" + v.getCapacidadMaxima()));
+//
+//        // Verificar vuelo directo UBBB→SLLP
+//        boolean existeDirecto = this.vuelos.stream()
+//                .anyMatch(v -> v.getAeropuertoOrigen().getCodigoIATA().equals("UBBB") &&
+//                        v.getAeropuertoDestino().getCodigoIATA().equals("SLLP"));
+//        System.out.println("¿Existe vuelo directo UBBB→SLLP? " + existeDirecto);
     }
 
     private void inicializarParametrosALNS() {
@@ -274,7 +303,7 @@ public class ALNSSolver {
         mejorSolucion = new HashMap<>(solucion);
 
         inicializarPoolNoAsignados();
-
+        inicializarOcupacionTemporalAlmacenes();
         System.out.println("\n=== INICIANDO ALGORITMO ALNS ===");
         ejecutarAlgoritmoALNS();
 
@@ -282,6 +311,7 @@ public class ALNSSolver {
         this.imprimirDescripcionSolucion(2);
     }
 
+    //Actualiza el pool o inicializa el pool con los pedidos que todavia no tienen rutas por x o y motivos
     private void inicializarPoolNoAsignados() {
         poolNoAsignados.clear();
         if (solucion.isEmpty()) return;
@@ -295,16 +325,17 @@ public class ALNSSolver {
             System.out.println("Pool de no asignados inicializado: " + poolNoAsignados.size() + " pedidos disponibles para expansión ALNS");
         }
     }
-
+    //Se busca agregar paquetes que fueron destruidos al pool de no asignados mediante
     private ArrayList<Map.Entry<Pedido, ArrayList<Vuelo>>> expandirConPaquetesNoAsignados(
             ArrayList<Map.Entry<Pedido, ArrayList<Vuelo>>> paquetesDestruidos, int maxAgregar) {
 
         if (poolNoAsignados.isEmpty() || maxAgregar <= 0) {
             return paquetesDestruidos;
         }
-
+        //Duplica la lista de paquetes destruidos para añadir al pool de paquetes sin ruta
         ArrayList<Map.Entry<Pedido, ArrayList<Vuelo>>> listaExpandida = new ArrayList<>(paquetesDestruidos);
 
+        //Calcula qué porcentaje del total de pedidos están actualmente no asignados.
         double ratioPool = (double) poolNoAsignados.size() / pedidos.size();
         double probabilidadExpansion;
 
@@ -317,9 +348,10 @@ public class ALNSSolver {
         } else {
             probabilidadExpansion = modoDiversificacion ? 0.3 : 0.1;
         }
-
+        //Si cae por debajo de probabilidadExpansion, entonces decide expandir (añadir pedidos del pool)
         if (aleatorio.nextDouble() < probabilidadExpansion) {
             ArrayList<Pedido> noAsignadosOrdenados = new ArrayList<>(poolNoAsignados);
+            //ORDENA LOS PEDIDOS SEGUN LA FECHA LIMITE DE ENTREGA, PRIMERO LOS DE ENTREGA MAXIMA
             noAsignadosOrdenados.sort((p1, p2) -> {
                 LocalDateTime d1 = p1.getFechaLimiteEntrega();
                 LocalDateTime d2 = p2.getFechaLimiteEntrega();
@@ -329,6 +361,7 @@ public class ALNSSolver {
                 return d1.compareTo(d2);
             });
 
+            //Define cuantos pedidos como maximo se pueden agregar dependiendo del ratioPool
             int maxDinamico;
             if (ratioPool > 0.5) {
                 maxDinamico = Math.min(200, poolNoAsignados.size());
@@ -337,9 +370,10 @@ public class ALNSSolver {
             } else {
                 maxDinamico = Math.min(50, poolNoAsignados.size());
             }
-
+            //Luego ajusta con el tamaño real del pool (por si tiene menos).
             int agregar = Math.min(maxDinamico, noAsignadosOrdenados.size());
 
+            //Inserta los agregar primeros pedidos (los más urgentes) al final de la lista expandida.
             for (int i = 0; i < agregar; i++) {
                 Pedido pedido = noAsignadosOrdenados.get(i);
                 listaExpandida.add(new java.util.AbstractMap.SimpleEntry<>(pedido, new ArrayList<>()));
@@ -366,20 +400,30 @@ public class ALNSSolver {
     }
 
     private void ejecutarAlgoritmoALNS() {
-        HashMap<Pedido, ArrayList<Vuelo>> solucionActual = null;
-        int pesoActual = Integer.MAX_VALUE;
-
-        for (Map.Entry<HashMap<Pedido, ArrayList<Vuelo>>, Integer> entrada : solucion.entrySet()) {
-            solucionActual = new HashMap<>(entrada.getKey());
-            pesoActual = entrada.getValue();
-            break;
-        }
-
-        if (solucionActual == null) {
-            System.out.println("Error: No se pudo obtener la solución inicial");
+//        HashMap<Pedido, ArrayList<Vuelo>> solucionActual = null;
+//        int pesoActual = Integer.MAX_VALUE;
+//
+//        for (Map.Entry<HashMap<Pedido, ArrayList<Vuelo>>, Integer> entrada : solucion.entrySet()) {
+//            solucionActual = new HashMap<>(entrada.getKey());
+//            pesoActual = entrada.getValue();
+//            break;
+//        }
+//
+//        if (solucionActual == null) {
+//            System.out.println("Error: No se pudo obtener la solución inicial");
+//            return;
+//        }
+        // Extraer solución inicial de manera más robusta
+        if (solucion.isEmpty()) {
+            System.out.println("Error: No hay solución inicial");
             return;
         }
 
+        Map.Entry<HashMap<Pedido, ArrayList<Vuelo>>, Integer> primeraEntrada =
+                solucion.entrySet().iterator().next();
+        HashMap<Pedido, ArrayList<Vuelo>> solucionActual = new HashMap<>(primeraEntrada.getKey());
+        int pesoActual = primeraEntrada.getValue();
+        //////////
         System.out.println("Peso de solución inicial: " + pesoActual);
 
         ultimoPesoSignificativo = pesoActual;
@@ -393,10 +437,20 @@ public class ALNSSolver {
             if (Constantes.LOGGING_VERBOSO || iteracion % Constantes.INTERVALO_LOG_ITERACION == 0) {
                 System.out.println("ALNS Iteración " + iteracion + "/" + maxIteraciones);
             }
-
+            //Seleccion de operadores para saber que operador de destruccion y repacion usar dependiendo de sus pesos
+            /*  | Índice | Operador de destrucción | Operador de reparación |
+                | ------ | ----------------------- | ---------------------- |
+                | 0      | Aleatoria               | Codiciosa              |
+                | 1      | Geográfica              | Arrepentimiento        |
+                | 2      | Por tiempo              | Por tiempo             |
+                | 3      | Congestionada           | Por capacidad          |
+            */
             int[] operadoresSeleccionados = seleccionarOperadores();
             int operadorDestruccion = operadoresSeleccionados[0];
             int operadorReparacion = operadoresSeleccionados[1];
+
+//            int operadorDestruccion = 3;
+//            int operadorReparacion = 0;
 
             if (Constantes.LOGGING_VERBOSO) {
                 System.out.println("  Operadores seleccionados: Destrucción=" + operadorDestruccion + ", Reparación=" + operadorReparacion);
@@ -404,13 +458,17 @@ public class ALNSSolver {
 
             HashMap<Pedido, ArrayList<Vuelo>> solucionTemporal = new HashMap<>(solucionActual);
 
-            Map<Vuelo, Integer> snapshotCapacidades = crearSnapshotCapacidades();
-            Map<Aeropuerto, Integer> snapshotAlmacenes = crearSnapshotAlmacenes();
+            //Crear una foto de las capacidades en esa iteracion de los vuelos y de los aeropuertos
+            //esto sirve para revertir una destruccion o una reparacion de una solucion
+            Map<Vuelo, Integer> snapshotCapacidades = crearSnapshotCapacidades(); //VUELOS
+            Map<Aeropuerto, Integer> snapshotAlmacenes = crearSnapshotAlmacenes(); //AEROPUERTOS
 
             if (Constantes.LOGGING_VERBOSO) {
                 System.out.println("  Aplicando operador de destrucción...");
             }
             long tiempoInicio = System.currentTimeMillis();
+            //empezamos con la destruccion de la solucion temporal (porque no queremos malograr la actual)
+            //se manda tambien el operador de destruccion segun seleccionarOperadores()
             ALNSDestruction.ResultadoDestruccion resultadoDestruccion = aplicarOperadorDestruccion(
                 solucionTemporal, operadorDestruccion);
             long tiempoFin = System.currentTimeMillis();
@@ -431,8 +489,8 @@ public class ALNSSolver {
             }
 
             solucionTemporal = new HashMap<>(resultadoDestruccion.getSolucionParcial());
-            reconstruirCapacidadesDesdeSolucion(solucionTemporal);
-            reconstruirAlmacenesDesdeSolucion(solucionTemporal);
+            reconstruirCapacidadesDesdeSolucion(solucionTemporal); //VUELOS
+            reconstruirAlmacenesDesdeSolucion(solucionTemporal); //AEROPUERTOS
 
             ArrayList<Map.Entry<Pedido, ArrayList<Vuelo>>> paquetesExpandidos =
                 expandirConPaquetesNoAsignados(resultadoDestruccion.getPaquetesDestruidos(), 100);
@@ -456,7 +514,7 @@ public class ALNSSolver {
 
             boolean aceptada = false;
             double ratioMejora = 0.0;
-
+            //VER EL PESO ACTUAL QUE DIO LA NUEVA SOLUCION
             if (pesoTemporal > pesoActual) {
                 ratioMejora = (double)(pesoTemporal - pesoActual) / Math.max(pesoActual, 1);
                 solucionActual = solucionTemporal;
@@ -742,8 +800,8 @@ public class ALNSSolver {
 
         System.out.println("Híbrido: Manteniendo " + mantener + " mejores pedidos, regenerando " + (solucionActual.size() - mantener));
 
-        reconstruirCapacidadesDesdeSolucion(nuevaSolucion);
-        reconstruirAlmacenesDesdeSolucion(nuevaSolucion);
+        reconstruirCapacidadesDesdeSolucion(nuevaSolucion); //VUELOS
+        reconstruirAlmacenesDesdeSolucion(nuevaSolucion); //AEROPUERTOS
 
         return nuevaSolucion;
     }
@@ -780,6 +838,7 @@ public class ALNSSolver {
                 System.out.println("    Seleccionando operadores...");
             }
 
+            //Calcular el peso total de todos los operadores
             double pesoTotal = 0.0;
             for (int i = 0; i < pesosOperadores.length; i++) {
                 for (int j = 0; j < pesosOperadores[i].length; j++) {
@@ -790,9 +849,17 @@ public class ALNSSolver {
             if (Constantes.LOGGING_VERBOSO) {
                 System.out.println("    Peso total: " + pesoTotal);
             }
+            /*  | D\R | R1  | R2  | R3  | R4  |
+                | D1  | 1.0 | 2.0 | 1.5 | 1.0 |
+                | D2  | 0.5 | 3.0 | 2.5 | 1.0 |
+                | D3  | 1.0 | 1.0 | 1.0 | 1.0 |
+                | D4  | 0.8 | 0.9 | 1.1 | 1.2 |
+            */
+            //Genera un numero aleatorio proporcional
             double valorAleatorio = aleatorio.nextDouble() * pesoTotal;
             double pesoAcumulado = 0.0;
-
+            //selecciona usando ruleta ponderada
+            //Va sumando los pesos fila por fila, columna por columna, hasta que el peso acumulado supera el número aleatorio.
             for (int i = 0; i < pesosOperadores.length; i++) {
                 for (int j = 0; j < pesosOperadores[i].length; j++) {
                     pesoAcumulado += pesosOperadores[i][j];
@@ -819,35 +886,45 @@ public class ALNSSolver {
     private ALNSDestruction.ResultadoDestruccion aplicarOperadorDestruccion(
             HashMap<Pedido, ArrayList<Vuelo>> solucion, int indiceOperador) {
         try {
+            //porcentaje de pedidos a eliminar
             double ratioAjustado = Constantes.RATIO_DESTRUCCION * factorDiversificacion;
+            //minimo absoluto de paquetes a eliminar
             int minAjustado = (int)(Constantes.DESTRUCCION_MIN_PAQUETES * factorDiversificacion);
+            //maximo absoluto de paquetes a eliminar
             int maxAjustado = (int)(Constantes.DESTRUCCION_MAX_PAQUETES * factorDiversificacion);
-
+            /*El multiplicador factorDiversificacion aumenta o reduce la agresividad:
+            Si el algoritmo está estancado, factorDiversificacion > 1 → destruye más.
+            Si va mejorando, factorDiversificacion < 1 → destruye menos.*/
             switch (indiceOperador) {
                 case 0:
                     if (Constantes.LOGGING_VERBOSO) {
                         System.out.println("    Ejecutando destruccionAleatoria... (ratio: " + String.format("%.2f", ratioAjustado) + ")");
                     }
+                    //Destruye sin un orden especifico solo al azar
                     return operadoresDestruccion.destruccionAleatoria(solucion, ratioAjustado, minAjustado, maxAjustado);
                 case 1:
                     if (Constantes.LOGGING_VERBOSO) {
                         System.out.println("    Ejecutando destruccionGeografica... (ratio: " + String.format("%.2f", ratioAjustado) + ")");
                     }
+                    //Elimina pedidos cercanos entre sí geográficamente (por ciudad o región).
                     return operadoresDestruccion.destruccionGeografica(solucion, ratioAjustado, minAjustado, maxAjustado);
                 case 2:
                     if (Constantes.LOGGING_VERBOSO) {
                         System.out.println("    Ejecutando destruccionBasadaEnTiempo... (ratio: " + String.format("%.2f", ratioAjustado) + ")");
                     }
+                    //Elimina pedidos cuyo deadline o fecha de entrega está cerca (urgentes o conflictivos).
                     return operadoresDestruccion.destruccionBasadaEnTiempo(solucion, ratioAjustado, minAjustado, maxAjustado);
                 case 3:
                     if (Constantes.LOGGING_VERBOSO) {
                         System.out.println("    Ejecutando destruccionRutaCongestionada... (ratio: " + String.format("%.2f", ratioAjustado) + ")");
                     }
+                    //Elimina pedidos que pasan por rutas o vuelos saturados.
                     return operadoresDestruccion.destruccionRutaCongestionada(solucion, ratioAjustado, minAjustado, maxAjustado);
                 default:
                     if (Constantes.LOGGING_VERBOSO) {
                         System.out.println("    Ejecutando destruccionAleatoria (default)... (ratio: " + String.format("%.2f", ratioAjustado) + ")");
                     }
+                    //aleatorio como respaldo
                     return operadoresDestruccion.destruccionAleatoria(solucion, ratioAjustado, minAjustado, maxAjustado);
             }
         } catch (Exception e) {
@@ -944,7 +1021,7 @@ public class ALNSSolver {
             int conteoProductos = pedido.getProductos() != null ? pedido.getProductos().size() : 1;
 
             if (ruta == null || ruta.isEmpty()) {
-                Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo());
+                Aeropuerto aeropuertoDestino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo());
                 if (aeropuertoDestino != null) {
                     incrementarOcupacionAlmacen(aeropuertoDestino, conteoProductos);
                 }
@@ -1009,15 +1086,16 @@ public class ALNSSolver {
     private Pedido crearUnidadPaquete(Pedido pedidoOriginal, int indiceUnidad) {
         Pedido unidad = new Pedido();
 
-        String idUnidadString = pedidoOriginal.getId() + "#" + indiceUnidad;
-        long hash = idUnidadString.hashCode();
-        System.out.println("🧩 Generando unidad -> base: " + idUnidadString + " | hash=" + hash);
-        unidad.setId(hash);
+        // Generar ID único garantizado
+        long idUnico = pedidoOriginal.getId() * 1000L + indiceUnidad;
+        unidad.setId(idUnico);
 
 
         unidad.setCliente(pedidoOriginal.getCliente());
-        unidad.setAeropuertoDestinoCodigo(obtenerAeropuerto(pedidoOriginal.getAeropuertoDestinoCodigo()).getCodigoIATA());
-        unidad.setAeropuertoOrigenCodigo(obtenerAeropuerto(pedidoOriginal.getAeropuertoOrigenCodigo()).getCodigoIATA());
+        //unidad.setAeropuertoDestinoCodigo(obtenerAeropuerto(pedidoOriginal.getAeropuertoDestinoCodigo()).getCodigoIATA());
+        //unidad.setAeropuertoOrigenCodigo(obtenerAeropuerto(pedidoOriginal.getAeropuertoOrigenCodigo()).getCodigoIATA());
+        unidad.setAeropuertoOrigenCodigo(pedidoOriginal.getAeropuertoOrigenCodigo()); // ← Usar el código directamente
+        unidad.setAeropuertoDestinoCodigo(pedidoOriginal.getAeropuertoDestinoCodigo());
         unidad.setFechaPedido(pedidoOriginal.getFechaPedido());
         unidad.setFechaLimiteEntrega(pedidoOriginal.getFechaLimiteEntrega());
         unidad.setEstado(pedidoOriginal.getEstado());
@@ -1146,6 +1224,9 @@ public class ALNSSolver {
     private void generarSolucionInicialGreedy() {
         System.out.println("=== GENERANDO SOLUCIÓN INICIAL GREEDY ===");
 
+        // Reiniciar capacidades
+        reiniciarCapacidades();
+
         // Crear estructura de solución temporal
         HashMap<Pedido, ArrayList<Vuelo>> solActual = new HashMap<>();
 
@@ -1210,7 +1291,11 @@ public class ALNSSolver {
         System.out.println("Solución inicial generada: " + paquetesAsignados + "/" + pedidos.size() + " pedidos asignados");
         System.out.println("Peso de la solución: " + pesoSolucion);
     }
-
+    private void reiniciarCapacidades() {
+        for (Vuelo vuelo : vuelos) {
+            vuelo.setCapacidadUsada(0);
+        }
+    }
 
     private void generarSolucionInicialAleatoria() {
         System.out.println("=== GENERANDO SOLUCIÓN INICIAL ALEATORIA ===");
@@ -1441,6 +1526,11 @@ public class ALNSSolver {
         Ciudad origen = obtenerAeropuerto(pedido.getAeropuertoOrigenCodigo()).getCiudad();
         Ciudad destino = obtenerAeropuerto(pedido.getAeropuertoDestinoCodigo()).getCiudad();
 
+        // ERROR: No se verifica si origen o destino son null
+        if (origen == null || destino == null) {
+            return null;
+        }
+
         if (origen.equals(destino)) {
             return new ArrayList<>();
         }
@@ -1665,7 +1755,7 @@ public class ALNSSolver {
     private boolean seRespetaDeadline(Pedido pedido, ArrayList<Vuelo> ruta) {
         // Validación inicial
         if (ruta == null || ruta.isEmpty()) {
-            System.out.println("⚠️ Pedido " + pedido.getId() + " no tiene vuelos asignados en la ruta.");
+            //System.out.println("⚠️ Pedido " + pedido.getId() + " no tiene vuelos asignados en la ruta.");
             return false;
         }
         double tiempoTotal = 0;
@@ -2063,9 +2153,23 @@ public class ALNSSolver {
     }
 
     private void inicializarOcupacionAlmacenes() {
-        for (Aeropuerto aeropuerto : aeropuertos) {
-            ocupacionAlmacenes.put(aeropuerto, 0);
+        if (ocupacionAlmacenes == null) {
+            ocupacionAlmacenes = new HashMap<>();
         }
+
+        for (Aeropuerto a : aeropuertos) {
+            // si aún no está en el mapa, lo agregamos con ocupación inicial 0
+            ocupacionAlmacenes.putIfAbsent(a, 0);
+        }
+
+//        System.out.println("Ocupación inicial de almacenes: " + ocupacionAlmacenes.size() + " aeropuertos cargados");
+//        System.out.println("----- DEBUG CAPACIDADES AEROPUERTOS -----");
+//
+//        for (Aeropuerto a : aeropuertos) {
+//            Integer occ = ocupacionAlmacenes.getOrDefault(a, null);
+//            System.out.println(a.getCodigoIATA() + " capActual=" + a.getCapacidadActual() + " ocupacionMap=" + occ);
+//        }
+//        System.out.println("-----------------------------------------");
     }
 
     private void inicializarOcupacionTemporalAlmacenes() {
@@ -2182,18 +2286,24 @@ public class ALNSSolver {
     //METODO PARA AGREGAR AEROPUERTOS ORIGEN
     private void asignarAeropuertosOrigen(){
         for(Pedido pedido : pedidosOriginales){
-            pedido.setAeropuertoOrigenCodigo(colocarAeropuertoPrincipalAleatorio());
+            pedido.setAeropuertoOrigenCodigo(colocarAeropuertoPrincipalAleatorio(pedido.getAeropuertoDestinoCodigo()));
         }
     }
     // Método auxiliar para encontrar aeropuerto por defecto
-    private String colocarAeropuertoPrincipalAleatorio() {
+    private String colocarAeropuertoPrincipalAleatorio(String codigoDestino) {
         // Lista de códigos IATA de los aeropuertos principales de MoraPack
         String[] aeropuertosPrincipales = {"SPIM", "UBBB", "EBCI"};
+        ArrayList<String> aeropuertos = new ArrayList<>();
 
         Random random = new Random();
-        int indiceAleatorio = random.nextInt(aeropuertosPrincipales.length);
-        String codigoIATAOrigen = aeropuertosPrincipales[indiceAleatorio];
-        System.out.println("🔀 Usando aeropuerto por defecto: " + codigoIATAOrigen);
+        for (int i = 0; i < 3; i++) {
+            if(Objects.equals(codigoDestino, aeropuertosPrincipales[i]))
+                continue;
+            aeropuertos.add(aeropuertosPrincipales[i]);
+        }
+        int indiceAleatorio = random.nextInt(aeropuertos.size());
+        String codigoIATAOrigen = aeropuertos.get(indiceAleatorio);
+        //System.out.println("🔀 Usando aeropuerto por defecto: " + codigoIATAOrigen);
         return codigoIATAOrigen;
     }
 }

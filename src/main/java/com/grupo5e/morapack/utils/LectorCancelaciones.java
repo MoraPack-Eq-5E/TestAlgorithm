@@ -80,13 +80,13 @@ public class LectorCancelaciones {
                     int hora = Integer.parseInt(horaPartes[0]);
                     int minuto = Integer.parseInt(horaPartes[1]);
 
-                    Cancelacion cancelacion = new Cancelacion(
-                            dia,
-                            codigoIATAOrigen,
-                            codigoIATADestino,
-                            hora,
-                            minuto
-                    );
+                    // Crear cancelación usando constructor vacío y setters
+                    Cancelacion cancelacion = new Cancelacion();
+                    cancelacion.setDiasCancelado(dia);
+                    cancelacion.setCodigoIATAOrigen(codigoIATAOrigen);
+                    cancelacion.setCodigoIATADestino(codigoIATADestino);
+                    cancelacion.setHora(hora);
+                    cancelacion.setMinuto(minuto);
 
                     cancelaciones.add(cancelacion);
                     lineasValidas++;

@@ -15,9 +15,17 @@ import org.springframework.web.cors.CorsConfiguration;
 
 import java.util.List;
 
+/**
+ * Configuración de seguridad de la aplicación.
+ * Define la autenticación JWT, CORS y reglas de acceso a endpoints.
+ */
 @Configuration
 public class SecurityConfig {
 
+    /**
+     * Configura el generador de tokens JWT.
+     * Lee la configuración desde application.properties.
+     */
     @Bean
     public JwtUtil jwtUtil(org.springframework.core.env.Environment env) {
         String secret = env.getProperty("jwt.secret", "dev-secret-32-chars-minimo-1234567890");
@@ -25,9 +33,18 @@ public class SecurityConfig {
         return new JwtUtil(secret, exp);
     }
 
+    /**
+     * Encoder BCrypt para encriptar contraseñas.
+     */
     @Bean
-    public BCryptPasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
+    /**
+     * Configura la cadena de filtros de seguridad.
+     * Define CORS, autenticación JWT y reglas de acceso a endpoints.
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtUtil jwt) throws Exception {
         http
@@ -41,8 +58,13 @@ public class SecurityConfig {
                     return c;
                 }))
                 .authorizeHttpRequests(auth -> auth
+                        // Permitir Swagger y OpenAPI sin autenticación
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // Permitir login sin autenticación
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        // Requerir autenticación para /me
                         .requestMatchers(HttpMethod.GET,  "/api/auth/me").authenticated()
+                        // Permitir todo lo demás (puedes cambiar a .authenticated() si quieres proteger todas las APIs)
                         .anyRequest().permitAll()
                 )
                 .httpBasic(Customizer.withDefaults());

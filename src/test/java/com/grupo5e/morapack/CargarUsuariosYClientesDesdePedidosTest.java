@@ -1,4 +1,4 @@
-package com.grupo5e.morapack.utils;
+package com.grupo5e.morapack;
 
 import com.grupo5e.morapack.core.enums.Rol;
 import com.grupo5e.morapack.core.enums.TipoDocumento;

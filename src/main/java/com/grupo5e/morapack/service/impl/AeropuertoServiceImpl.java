@@ -1,16 +1,20 @@
 package com.grupo5e.morapack.service.impl;
 
+import com.grupo5e.morapack.api.exception.ResourceNotFoundException;
 import com.grupo5e.morapack.core.model.Aeropuerto;
 import com.grupo5e.morapack.repository.AeropuertoRepository;
 import com.grupo5e.morapack.service.AeropuertoService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class AeropuertoServiceImpl implements AeropuertoService {
 
-    private final AeropuertoRepository aeropuertoRepository; //aqui esta el CRUD predefinido
+    private final AeropuertoRepository aeropuertoRepository;
 
     public AeropuertoServiceImpl(AeropuertoRepository aeropuertoRepository) {
         this.aeropuertoRepository = aeropuertoRepository;
@@ -22,8 +26,20 @@ public class AeropuertoServiceImpl implements AeropuertoService {
     }
 
     @Override
+    @Transactional
     public Long insertar(Aeropuerto aeropuerto) {
         return aeropuertoRepository.save(aeropuerto).getId();
+    }
+
+    @Override
+    @Transactional
+    public Aeropuerto actualizar(Long id, Aeropuerto aeropuerto) {
+        Aeropuerto existente = buscarPorId(id);
+        if (existente == null) {
+            throw new ResourceNotFoundException("Aeropuerto", "id", id);
+        }
+        aeropuerto.setId(id);
+        return aeropuertoRepository.save(aeropuerto);
     }
 
     @Override
@@ -32,7 +48,27 @@ public class AeropuertoServiceImpl implements AeropuertoService {
     }
 
     @Override
+    public Optional<Aeropuerto> buscarPorCodigoIATA(String codigoIATA) {
+        return aeropuertoRepository.findByCodigoIATA(codigoIATA);
+    }
+
+    @Override
+    @Transactional
     public void eliminar(Long id) {
+        if (!existePorId(id)) {
+            throw new ResourceNotFoundException("Aeropuerto", "id", id);
+        }
         aeropuertoRepository.deleteById(id);
+    }
+
+    @Override
+    public boolean existePorId(Long id) {
+        return aeropuertoRepository.existsById(id);
+    }
+
+    @Override
+    @Transactional
+    public List<Aeropuerto> insertarBulk(List<Aeropuerto> aeropuertos) {
+        return aeropuertoRepository.saveAll(aeropuertos).stream().collect(Collectors.toList());
     }
 }

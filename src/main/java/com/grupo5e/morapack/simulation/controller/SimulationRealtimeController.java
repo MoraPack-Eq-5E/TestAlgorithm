@@ -208,6 +208,7 @@ public class SimulationRealtimeController {
                 .destinationCity(flight.getDestinationCity())
                 .status(flight.getStatus().name())
                 .progressPercentage(flight.getProgressPercentage())
+                .heading(flight.getHeading())
                 .packagesOnBoard(flight.getPackagesOnBoard())
                 .capacityUsed(flight.getCapacityUsed())
                 .capacityMax(flight.getCapacityMax())

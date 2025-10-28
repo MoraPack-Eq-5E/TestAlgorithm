@@ -5,6 +5,7 @@ import com.grupo5e.morapack.repository.SimulacionAsignacionRepository;
 import com.grupo5e.morapack.repository.SimulacionSemanalRepository;
 import com.grupo5e.morapack.service.AeropuertoService;
 import com.grupo5e.morapack.simulation.model.*;
+import com.grupo5e.morapack.utils.BezierCurveUtils;
 import com.grupo5e.morapack.utils.CoordenadasUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -362,7 +363,8 @@ public class SimulationEngine {
     }
     
     /**
-     * Calcula la posición actual de un vuelo mediante interpolación lineal
+     * Calcula la posición actual de un vuelo mediante curvas Bézier cuadráticas.
+     * Esto simula la curvatura natural de las rutas aéreas para una visualización más realista.
      */
     private void updateFlightPosition(FlightSnapshot flight, LocalDateTime currentTime) {
         LocalDateTime departure = flight.getDepartureTime();
@@ -376,6 +378,7 @@ public class SimulationEngine {
             flight.setProgressPercentage(0.0);
             flight.setCurrentLat(flight.getOriginLat());
             flight.setCurrentLng(flight.getOriginLng());
+            flight.setHeading(0.0); // Sin dirección cuando está en tierra
             
         } else if (currentTime.isAfter(arrival)) {
             // Ya aterrizó
@@ -384,6 +387,7 @@ public class SimulationEngine {
             flight.setProgressPercentage(100.0);
             flight.setCurrentLat(flight.getDestinationLat());
             flight.setCurrentLng(flight.getDestinationLng());
+            flight.setHeading(0.0); // Sin dirección cuando está en tierra
             
         } else {
             // En vuelo - calcular progreso
@@ -400,21 +404,28 @@ public class SimulationEngine {
             flight.setProgress(progress);
             flight.setProgressPercentage(Math.round(progress * 10000.0) / 100.0);  // 2 decimales
             
-            // Interpolación lineal de posición
-            double currentLat = CoordenadasUtils.interpolar(
-                    flight.getOriginLat(), 
-                    flight.getDestinationLat(), 
-                    progress
+            // Calcular posición usando curva Bézier cuadrática (más realista que interpolación lineal)
+            BezierCurveUtils.Point position = BezierCurveUtils.getPositionOnBezierCurve(
+                    progress,
+                    flight.getOriginLat(),
+                    flight.getOriginLng(),
+                    flight.getDestinationLat(),
+                    flight.getDestinationLng()
             );
             
-            double currentLng = CoordenadasUtils.interpolar(
-                    flight.getOriginLng(), 
-                    flight.getDestinationLng(), 
-                    progress
+            flight.setCurrentLat(position.lat);
+            flight.setCurrentLng(position.lng);
+            
+            // Calcular dirección del vuelo (heading) para que el ícono del avión apunte correctamente
+            double heading = BezierCurveUtils.calculateHeading(
+                    progress,
+                    flight.getOriginLat(),
+                    flight.getOriginLng(),
+                    flight.getDestinationLat(),
+                    flight.getDestinationLng()
             );
             
-            flight.setCurrentLat(currentLat);
-            flight.setCurrentLng(currentLng);
+            flight.setHeading(heading);
         }
     }
     

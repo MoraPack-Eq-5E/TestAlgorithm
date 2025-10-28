@@ -77,6 +77,11 @@ public class FlightSnapshot {
     private double progressPercentage;
     
     /**
+     * Dirección del vuelo en grados (0° = Norte, 90° = Este, calculado con curva Bézier)
+     */
+    private double heading;
+    
+    /**
      * Paquetes a bordo de este vuelo
      */
     private List<Long> packagesOnBoard;

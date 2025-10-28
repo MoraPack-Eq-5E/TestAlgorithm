@@ -164,11 +164,23 @@ public class SimulationEngine {
             Aeropuerto origen = vuelo.getAeropuertoOrigen();
             Aeropuerto destino = vuelo.getAeropuertoDestino();
             
-            // Extraer paquetes en este vuelo
-            List<Long> packagesOnBoard = vueloAsignaciones.stream()
-                    .map(a -> a.getPedido().getId())
+            // Extraer pedidos en este vuelo (distinct por ID)
+            List<Pedido> pedidosEnVuelo = vueloAsignaciones.stream()
+                    .map(SimulacionAsignacion::getPedido)
                     .distinct()
                     .collect(Collectors.toList());
+            
+            // Extraer IDs de pedidos para el DTO
+            List<Long> packagesOnBoard = pedidosEnVuelo.stream()
+                    .map(Pedido::getId)
+                    .collect(Collectors.toList());
+            
+            // ✅ CALCULAR CAPACIDAD DINÁMICA (suma de productos de todos los pedidos a bordo)
+            int capacidadUsadaDinamica = pedidosEnVuelo.stream()
+                    .mapToInt(p -> p.getProductos() != null ? p.getProductos().size() : 1)
+                    .sum();
+            
+            int capacidadMaxima = vuelo.getCapacidadMaxima();
             
             // Coordenadas
             double originLat = first.getLatitudInicio();
@@ -209,10 +221,10 @@ public class SimulationEngine {
                     .progress(0.0)
                     .progressPercentage(0.0)
                     .packagesOnBoard(packagesOnBoard)
-                    .capacityUsed(vuelo.getCapacidadUsada())
-                    .capacityMax(vuelo.getCapacidadMaxima())
-                    .occupancyPercentage(vuelo.getCapacidadMaxima() > 0 ? 
-                            (vuelo.getCapacidadUsada() * 100.0) / vuelo.getCapacidadMaxima() : 0)
+                    .capacityUsed(capacidadUsadaDinamica)  // ✅ Calculada dinámicamente
+                    .capacityMax(capacidadMaxima)
+                    .occupancyPercentage(capacidadMaxima > 0 ? 
+                            (capacidadUsadaDinamica * 100.0) / capacidadMaxima : 0)
                     .originCode(origen.getCodigoIATA())
                     .destinationCode(destino.getCodigoIATA())
                     .originCity(origen.getCiudad() != null ? origen.getCiudad().getNombre() : "")

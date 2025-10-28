@@ -116,17 +116,30 @@ public class SimulationRealtimeController {
             )
     })
     @GetMapping("/{simulacionId}/status")
-    public ResponseEntity<SimulationStatusResponse> getSimulationStatus(
+    public ResponseEntity<?> getSimulationStatus(
             @Parameter(description = "ID de la simulación", required = true)
             @PathVariable Long simulacionId) {
         
-        // Actualizar simulación (calcula posiciones actuales)
-        SimulationState state = simulationEngine.updateSimulation(simulacionId);
-        
-        // Construir respuesta
-        SimulationStatusResponse response = buildStatusResponse(state);
-        
-        return ResponseEntity.ok(response);
+        try {
+            // Actualizar simulación (calcula posiciones actuales)
+            SimulationState state = simulationEngine.updateSimulation(simulacionId);
+            
+            // Construir respuesta
+            SimulationStatusResponse response = buildStatusResponse(state);
+            
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            // Simulación no está en memoria - devolver 503 con mensaje claro
+            log.warn("Simulación {} no está en memoria. Mensaje: {}", simulacionId, e.getMessage());
+            
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("simulationId", simulacionId);
+            errorResponse.put("error", "SIMULATION_NOT_LOADED");
+            errorResponse.put("message", "La simulación no está cargada en memoria. Debe iniciar la visualización primero.");
+            errorResponse.put("action", "POST /api/simulations/" + simulacionId + "/visualization/start");
+            
+            return ResponseEntity.status(503).body(errorResponse);
+        }
     }
     
     /**

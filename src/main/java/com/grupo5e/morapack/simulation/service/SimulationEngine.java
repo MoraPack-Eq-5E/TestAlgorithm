@@ -1,5 +1,6 @@
 package com.grupo5e.morapack.simulation.service;
 
+import com.grupo5e.morapack.core.enums.EstadoAeropuerto;
 import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.repository.SimulacionAsignacionRepository;
 import com.grupo5e.morapack.repository.SimulacionSemanalRepository;
@@ -147,6 +148,7 @@ public class SimulationEngine {
     
     /**
      * Construye snapshots de vuelos desde las asignaciones de la BD
+     * Solo incluye vuelos con aeropuertos de origen y destino DISPONIBLES
      */
     private List<FlightSnapshot> buildFlightSnapshots(List<SimulacionAsignacion> asignaciones) {
         // Agrupar asignaciones por vuelo
@@ -154,6 +156,7 @@ public class SimulationEngine {
                 .collect(Collectors.groupingBy(a -> a.getVuelo().getId()));
         
         List<FlightSnapshot> snapshots = new ArrayList<>();
+        int vuelosFiltrados = 0;
         
         for (Map.Entry<Integer, List<SimulacionAsignacion>> entry : byFlight.entrySet()) {
             Integer vueloId = entry.getKey();
@@ -164,6 +167,21 @@ public class SimulationEngine {
             Vuelo vuelo = first.getVuelo();
             Aeropuerto origen = vuelo.getAeropuertoOrigen();
             Aeropuerto destino = vuelo.getAeropuertoDestino();
+            
+            // ✅ FILTRAR: Solo incluir vuelos con aeropuertos activos
+            if (origen.getEstado() != EstadoAeropuerto.DISPONIBLE) {
+                log.debug("⏩ Vuelo {} omitido: aeropuerto origen {} está inactivo", 
+                         vuelo.getIdentificadorVuelo(), origen.getCodigoIATA());
+                vuelosFiltrados++;
+                continue;
+            }
+            
+            if (destino.getEstado() != EstadoAeropuerto.DISPONIBLE) {
+                log.debug("⏩ Vuelo {} omitido: aeropuerto destino {} está inactivo", 
+                         vuelo.getIdentificadorVuelo(), destino.getCodigoIATA());
+                vuelosFiltrados++;
+                continue;
+            }
             
             // Extraer pedidos en este vuelo (distinct por ID)
             List<Pedido> pedidosEnVuelo = vueloAsignaciones.stream()
@@ -235,6 +253,12 @@ public class SimulationEngine {
             
             snapshots.add(snapshot);
         }
+        
+        if (vuelosFiltrados > 0) {
+            log.warn("⚠️ {} vuelos omitidos por tener aeropuertos inactivos", vuelosFiltrados);
+        }
+        
+        log.info("✅ {} vuelos cargados en memoria ({} omitidos)", snapshots.size(), vuelosFiltrados);
         
         return snapshots;
     }

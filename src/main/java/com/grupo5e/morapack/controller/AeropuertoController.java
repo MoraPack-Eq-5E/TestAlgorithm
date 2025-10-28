@@ -27,9 +27,11 @@ import java.util.stream.Collectors;
 public class AeropuertoController {
     
     private final AeropuertoService service;
+    private final com.grupo5e.morapack.api.mapper.AeropuertoMapper mapper;
 
-    public AeropuertoController(AeropuertoService service) {
+    public AeropuertoController(AeropuertoService service, com.grupo5e.morapack.api.mapper.AeropuertoMapper mapper) {
         this.service = service;
+        this.mapper = mapper;
     }
 
     @Operation(summary = "Listar todos los aeropuertos", description = "Obtiene una lista de todos los aeropuertos registrados")
@@ -37,8 +39,11 @@ public class AeropuertoController {
             @ApiResponse(responseCode = "200", description = "Lista de aeropuertos obtenida exitosamente")
     })
     @GetMapping
-    public ResponseEntity<List<Aeropuerto>> listar() {
-        return ResponseEntity.ok(service.listar());
+    public ResponseEntity<List<com.grupo5e.morapack.api.dto.AeropuertoDTO>> listar() {
+        List<com.grupo5e.morapack.api.dto.AeropuertoDTO> dtos = service.listar().stream()
+                .map(mapper::toDTO)
+                .collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(dtos);
     }
 
     @Operation(summary = "Obtener aeropuerto por ID", description = "Obtiene un aeropuerto específico por su ID")
@@ -95,6 +100,19 @@ public class AeropuertoController {
             @Valid @RequestBody Aeropuerto aeropuerto) {
         Aeropuerto actualizado = service.actualizar(id, aeropuerto);
         return ResponseEntity.ok(actualizado);
+    }
+
+    @Operation(summary = "Activar/Desactivar aeropuerto", description = "Cambia el estado de un aeropuerto entre DISPONIBLE y NO_DISPONIBLE")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Estado del aeropuerto cambiado exitosamente"),
+            @ApiResponse(responseCode = "404", description = "Aeropuerto no encontrado")
+    })
+    @PatchMapping("/{id}/toggle")
+    public ResponseEntity<Aeropuerto> toggleEstado(
+            @Parameter(description = "ID del aeropuerto", required = true)
+            @PathVariable Long id) {
+        Aeropuerto aeropuerto = service.toggleEstado(id);
+        return ResponseEntity.ok(aeropuerto);
     }
 
     @Operation(summary = "Eliminar aeropuerto", description = "Elimina un aeropuerto del sistema")

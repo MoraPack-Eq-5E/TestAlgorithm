@@ -1,6 +1,7 @@
 package com.grupo5e.morapack.service.impl;
 
 import com.grupo5e.morapack.api.exception.ResourceNotFoundException;
+import com.grupo5e.morapack.core.enums.EstadoAeropuerto;
 import com.grupo5e.morapack.core.model.Aeropuerto;
 import com.grupo5e.morapack.repository.AeropuertoRepository;
 import com.grupo5e.morapack.service.AeropuertoService;
@@ -26,6 +27,11 @@ public class AeropuertoServiceImpl implements AeropuertoService {
     }
 
     @Override
+    public List<Aeropuerto> listarDisponibles() {
+        return aeropuertoRepository.findByEstado(EstadoAeropuerto.DISPONIBLE);
+    }
+
+    @Override
     @Transactional
     public Long insertar(Aeropuerto aeropuerto) {
         return aeropuertoRepository.save(aeropuerto).getId();
@@ -39,6 +45,24 @@ public class AeropuertoServiceImpl implements AeropuertoService {
             throw new ResourceNotFoundException("Aeropuerto", "id", id);
         }
         aeropuerto.setId(id);
+        return aeropuertoRepository.save(aeropuerto);
+    }
+
+    @Override
+    @Transactional
+    public Aeropuerto toggleEstado(Long id) {
+        Aeropuerto aeropuerto = buscarPorId(id);
+        if (aeropuerto == null) {
+            throw new ResourceNotFoundException("Aeropuerto", "id", id);
+        }
+        
+        // Cambiar estado: DISPONIBLE ↔ NO_DISPONIBLE
+        if (aeropuerto.getEstado() == EstadoAeropuerto.DISPONIBLE) {
+            aeropuerto.setEstado(EstadoAeropuerto.NO_DISPONIBLE);
+        } else {
+            aeropuerto.setEstado(EstadoAeropuerto.DISPONIBLE);
+        }
+        
         return aeropuertoRepository.save(aeropuerto);
     }
 

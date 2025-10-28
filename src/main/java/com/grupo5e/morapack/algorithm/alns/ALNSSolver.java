@@ -104,7 +104,11 @@ public class ALNSSolver {
 
         //inicializr primero las listas
         this.pedidosOriginales = new ArrayList<>(pedidoService.listar());
-        this.aeropuertos = new ArrayList<>(aeropuertoService.listar());
+        
+        // CARGAR SOLO AEROPUERTOS DISPONIBLES (ACTIVOS)
+        this.aeropuertos = new ArrayList<>(aeropuertoService.listarDisponibles());
+        System.out.println("✅ Aeropuertos ACTIVOS cargados para ALNS: " + this.aeropuertos.size());
+        
         // VERIFICAR CAPACIDADES DE AEROPUERTOS
         System.out.println("=== VERIFICACIÓN DE CAPACIDADES DE AEROPUERTOS ===");
         for (Aeropuerto a : this.aeropuertos) {

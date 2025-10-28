@@ -7,8 +7,10 @@ import java.util.Optional;
 
 public interface AeropuertoService {
     List<Aeropuerto> listar();
+    List<Aeropuerto> listarDisponibles();
     Long insertar(Aeropuerto aeropuerto);
     Aeropuerto actualizar(Long id, Aeropuerto aeropuerto);
+    Aeropuerto toggleEstado(Long id);
     Aeropuerto buscarPorId(Long id);
     Optional<Aeropuerto> buscarPorCodigoIATA(String codigoIATA);
     void eliminar(Long id);

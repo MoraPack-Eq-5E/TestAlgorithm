@@ -46,5 +46,9 @@ public class SimulacionSemanalRequestDTO {
     @Schema(description = "Factor de aceleración para la visualización (1x, 10x, 100x, etc.)", example = "100")
     @Min(value = 1, message = "El factor de aceleración debe ser al menos 1")
     private Integer factorAceleracion = 100; // 1 segundo real = 100 minutos simulados
+    
+    @Builder.Default
+    @Schema(description = "Iniciar automáticamente la visualización en memoria cuando el ALNS termine", example = "false")
+    private Boolean autoStartVisualization = false;
 }
 

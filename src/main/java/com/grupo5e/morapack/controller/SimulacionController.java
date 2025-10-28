@@ -16,7 +16,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/simulacion")
@@ -106,7 +108,8 @@ public class SimulacionController {
 
     @Operation(
             summary = "Obtener estado de simulación",
-            description = "Consulta el estado actual de una simulación (progreso, si está completada, etc.)"
+            description = "Consulta el estado actual de una simulación. Devuelve el progreso del ALNS. " +
+                          "Puedes llamar este endpoint repetidamente hasta que estado='COMPLETADA'."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -120,12 +123,23 @@ public class SimulacionController {
             )
     })
     @GetMapping("/{simulacionId}/estado")
-    public ResponseEntity<SimulacionSemanalResponseDTO> obtenerEstado(
+    public ResponseEntity<?> obtenerEstado(
             @Parameter(description = "ID de la simulación", required = true)
             @PathVariable Long simulacionId) {
         
-        SimulacionSemanalResponseDTO estado = simulacionService.obtenerEstado(simulacionId);
-        return ResponseEntity.ok(estado);
+        try {
+            SimulacionSemanalResponseDTO estado = simulacionService.obtenerEstado(simulacionId);
+            return ResponseEntity.ok(estado);
+        } catch (RuntimeException e) {
+            // Si no existe aún, devolver respuesta útil
+            log.warn("Simulación {} no encontrada aún, puede estar iniciando", simulacionId);
+            Map<String, Object> response = new HashMap<>();
+            response.put("simulacionId", simulacionId);
+            response.put("estado", "BUSCANDO");
+            response.put("mensaje", "La simulación está iniciando. Intenta nuevamente en 2 segundos.");
+            response.put("progreso", 0);
+            return ResponseEntity.status(202).body(response); // 202 = Accepted (procesando)
+        }
     }
 
     @Operation(
@@ -225,29 +239,27 @@ public class SimulacionController {
         return ResponseEntity.ok(aeropuertos);
     }
 
+    @Deprecated(since = "2.0", forRemoval = true)
     @Operation(
-            summary = "Obtener vuelos activos en un momento",
-            description = "Obtiene los vuelos activos en un minuto específico de la simulación con sus posiciones calculadas"
+            summary = "[DEPRECATED] Usar /api/simulations/{id}/status en su lugar",
+            description = "OBSOLETO: Este endpoint será eliminado. Use GET /api/simulations/{id}/status para polling en tiempo real."
     )
     @ApiResponses(value = {
             @ApiResponse(
-                    responseCode = "200",
-                    description = "Vuelos activos obtenidos exitosamente"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Simulación no encontrada"
+                    responseCode = "410",
+                    description = "Endpoint obsoleto. Use /api/simulations/{id}/status"
             )
     })
     @GetMapping("/{simulacionId}/vuelos-activos")
-    public ResponseEntity<List<VueloActivoDTO>> obtenerVuelosActivos(
+    public ResponseEntity<String> obtenerVuelosActivos(
             @Parameter(description = "ID de la simulación", required = true)
             @PathVariable Long simulacionId,
             @Parameter(description = "Minuto actual desde T0", required = true, example = "1440")
             @RequestParam Integer minuto) {
         
-        List<VueloActivoDTO> vuelosActivos = visualizacionService.obtenerVuelosActivos(simulacionId, minuto);
-        return ResponseEntity.ok(vuelosActivos);
+        return ResponseEntity.status(410)
+                .body("Este endpoint está obsoleto. Use GET /api/simulations/" + simulacionId + 
+                      "/status para obtener el estado en tiempo real.");
     }
 
     @Operation(

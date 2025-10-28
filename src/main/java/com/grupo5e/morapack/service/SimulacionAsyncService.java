@@ -6,8 +6,10 @@ import com.grupo5e.morapack.core.enums.EstadoSimulacion;
 import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.repository.SimulacionAsignacionRepository;
 import com.grupo5e.morapack.repository.SimulacionSemanalRepository;
+import com.grupo5e.morapack.simulation.service.SimulationEngine;
 import com.grupo5e.morapack.utils.CoordenadasUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -33,18 +35,21 @@ public class SimulacionAsyncService {
     private final AeropuertoService aeropuertoService;
     private final PedidoService pedidoService;
     private final VueloService vueloService;
+    private final SimulationEngine simulationEngine;
 
     public SimulacionAsyncService(
             SimulacionSemanalRepository simulacionRepository,
             SimulacionAsignacionRepository asignacionRepository,
             AeropuertoService aeropuertoService,
             PedidoService pedidoService,
-            VueloService vueloService) {
+            VueloService vueloService,
+            @Lazy SimulationEngine simulationEngine) {
         this.simulacionRepository = simulacionRepository;
         this.asignacionRepository = asignacionRepository;
         this.aeropuertoService = aeropuertoService;
         this.pedidoService = pedidoService;
         this.vueloService = vueloService;
+        this.simulationEngine = simulationEngine;
     }
 
     /**
@@ -131,6 +136,20 @@ public class SimulacionAsyncService {
             guardarAsignaciones(simulacion, solucionOptima, T0);
 
             log.info("🎉 Simulación {} completada exitosamente", simulacionId);
+            
+            // Si se solicitó, cargar visualización en memoria automáticamente
+            if (Boolean.TRUE.equals(request.getAutoStartVisualization())) {
+                try {
+                    log.info("🎬 Cargando visualización en memoria automáticamente...");
+                    Integer timeScale = request.getFactorAceleracion() != null ? 
+                            request.getFactorAceleracion() : 112;
+                    simulationEngine.startSimulation(simulacionId, timeScale);
+                    log.info("✅ Visualización cargada y lista para polling");
+                } catch (Exception e) {
+                    log.warn("⚠️ No se pudo cargar visualización automáticamente: {}", e.getMessage());
+                    // No fallar la simulación por esto
+                }
+            }
 
         } catch (Exception e) {
             log.error("❌ Error en simulación {}: {}", simulacionId, e.getMessage(), e);

@@ -426,6 +426,7 @@ public class SimulationEngine {
         
         List<FlightSnapshot> flights = state.getFlights();
         
+        // Métricas de vuelos
         metrics.setTotalFlights(flights.size());
         metrics.setFlightsScheduled((int) flights.stream()
                 .filter(f -> f.getStatus() == FlightStatus.SCHEDULED).count());
@@ -434,11 +435,35 @@ public class SimulationEngine {
         metrics.setFlightsCompleted((int) flights.stream()
                 .filter(f -> f.getStatus() == FlightStatus.LANDED).count());
         
-        // TODO: Calcular métricas de pedidos cuando sea necesario
-        metrics.setTotalOrders(0);
-        metrics.setOrdersDelivered(0);
-        metrics.setOrdersInTransit(0);
-        metrics.setOrdersWaiting(0);
+        // Métricas de pedidos - contar pedidos únicos en vuelos
+        Set<Long> allPackages = new HashSet<>();
+        Set<Long> deliveredPackages = new HashSet<>();
+        
+        for (FlightSnapshot flight : flights) {
+            allPackages.addAll(flight.getPackagesOnBoard());
+            
+            // Si el vuelo aterrizó, consideramos los paquetes como entregados
+            if (flight.getStatus() == FlightStatus.LANDED) {
+                deliveredPackages.addAll(flight.getPackagesOnBoard());
+            }
+        }
+        
+        int totalOrders = allPackages.size();
+        int ordersDelivered = deliveredPackages.size();
+        int ordersInTransit = totalOrders - ordersDelivered;
+        
+        metrics.setTotalOrders(totalOrders);
+        metrics.setOrdersDelivered(ordersDelivered);
+        metrics.setOrdersInTransit(ordersInTransit);
+        metrics.setOrdersWaiting(0); // En esta simulación no hay concepto de "waiting"
+        
+        // SLA Compliance - calcular basado en entregas completadas
+        // Por ahora, asumimos 100% de cumplimiento si hay entregas, o 0% si no hay
+        // TODO: Implementar cálculo real basado en deadlines cuando esté disponible
+        double slaPercentage = totalOrders > 0 
+                ? (deliveredPackages.size() * 100.0 / totalOrders) 
+                : 100.0;
+        metrics.setSlaCompliancePercentage(Math.round(slaPercentage * 100.0) / 100.0);
         
         // Ocupación promedio de almacenes
         double avgOccupancy = state.getWarehouses().stream()

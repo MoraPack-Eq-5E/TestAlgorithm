@@ -58,6 +58,9 @@ public class ActiveFlightDTO {
     @Schema(description = "Progreso del vuelo (0-100%)", example = "45.23")
     private Double progressPercentage;
     
+    @Schema(description = "Dirección del vuelo en grados (0° = Norte, 90° = Este)", example = "45.0")
+    private Double heading;
+    
     @Schema(description = "IDs de paquetes a bordo", example = "[1, 5, 12]")
     private List<Long> packagesOnBoard;
     

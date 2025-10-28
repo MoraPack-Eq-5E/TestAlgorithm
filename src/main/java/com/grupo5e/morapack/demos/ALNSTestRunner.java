@@ -4,6 +4,7 @@ import com.grupo5e.morapack.algorithm.alns.ALNSSolver;
 import com.grupo5e.morapack.service.AeropuertoService;
 import com.grupo5e.morapack.service.PedidoService;
 import com.grupo5e.morapack.service.VueloService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +14,9 @@ public class ALNSTestRunner implements CommandLineRunner {
     private final AeropuertoService aeropuertoService;
     private final PedidoService pedidoService;
     private final VueloService vueloService;
+    
+    @Value("${alns.test.enabled:false}")
+    private boolean alnsTestEnabled;
 
     // Constructor con dependencias inyectadas
     public ALNSTestRunner(AeropuertoService aeropuertoService, PedidoService pedidoService,VueloService vueloService) {
@@ -23,6 +27,12 @@ public class ALNSTestRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        // Solo ejecutar si está habilitado
+        if (!alnsTestEnabled) {
+            System.out.println("⏭️  ALNS Test deshabilitado (usa alns.test.enabled=true para ejecutarlo)");
+            return;
+        }
+        
         System.out.println("🚀 INICIANDO PRUEBA DEL ALNSSOLVER 🚀");
 
         try {

@@ -31,8 +31,8 @@ public class ALNSSolver {
     private ArrayList<Vuelo> vuelos;
     private List<Pedido> pedidos;
 
-    // Unitización
-    private static final boolean HABILITAR_UNITIZACION_PRODUCTO = true;
+    // Unitización - DESACTIVADA para evitar problemas con IDs en BD
+    private static final boolean HABILITAR_UNITIZACION_PRODUCTO = false;
     private ArrayList<Pedido> pedidosOriginales;
 
     // Ancla temporal T0
@@ -86,11 +86,21 @@ public class ALNSSolver {
     private final VueloService vueloService;
 
     public ALNSSolver(AeropuertoService aeropuertoService,
-                      PedidoService pedidoService,VueloService vueloService) {
+                      PedidoService pedidoService,
+                      VueloService vueloService) {
+        this(aeropuertoService, pedidoService, vueloService, 500, null);
+    }
+
+    public ALNSSolver(AeropuertoService aeropuertoService,
+                      PedidoService pedidoService,
+                      VueloService vueloService,
+                      int maxIteraciones,
+                      Integer tiempoLimiteSegundos) {
         this.solucion = new HashMap<>();
         this.aeropuertoService = aeropuertoService;
         this.pedidoService = pedidoService;
         this.vueloService = vueloService;
+        this.maxIteraciones = maxIteraciones;  // Usar parámetro en vez de hardcoded
 
         //inicializr primero las listas
         this.pedidosOriginales = new ArrayList<>(pedidoService.listar());
@@ -184,9 +194,11 @@ public class ALNSSolver {
 
         this.temperatura = 100.0;
         this.tasaEnfriamiento = 0.98;
-        //OJO CON ESTE
-        this.maxIteraciones = 500;
+        //OJO CON ESTE - Ya NO se sobrescribe, se usa el del constructor
+        // this.maxIteraciones = 500;  // ← COMENTADO para usar el parámetro del constructor
         this.tamanoSegmento = 25;
+        
+        System.out.println("🔧 ALNS configurado con " + this.maxIteraciones + " iteraciones máximas");
 
         this.contadorEstancamiento = 0;
         this.umbralDiversificacion = 100;
@@ -2416,6 +2428,73 @@ public class ALNSSolver {
                         .collect(Collectors.joining(", ")));
 
         return null;
+    }
+
+    // ==================== GETTERS PÚBLICOS PARA ACCEDER A LA SOLUCIÓN ====================
+
+    /**
+     * Obtiene la mejor solución encontrada por el algoritmo ALNS
+     * @return HashMap con la solución: Pedido -> Lista de Vuelos asignados
+     */
+    public HashMap<Pedido, ArrayList<Vuelo>> getMejorSolucion() {
+        if (mejorSolucion == null || mejorSolucion.isEmpty()) {
+            return new HashMap<>();
+        }
+        // La estructura es HashMap<HashMap<Pedido, ArrayList<Vuelo>>, Integer>
+        // donde Integer es el peso. Retornamos solo el HashMap interno
+        return mejorSolucion.keySet().iterator().next();
+    }
+
+    /**
+     * Obtiene el peso (fitness) de la mejor solución
+     * @return Peso de la solución (mayor es mejor)
+     */
+    public Integer getPesoMejorSolucion() {
+        if (mejorSolucion == null || mejorSolucion.isEmpty()) {
+            return 0;
+        }
+        return mejorSolucion.values().iterator().next();
+    }
+
+    /**
+     * Obtiene el tiempo inicial de referencia (T0) usado en la simulación
+     * @return LocalDateTime con el tiempo T0
+     */
+    public LocalDateTime getT0() {
+        return this.T0;
+    }
+
+    /**
+     * Obtiene la lista de pedidos originales
+     * @return Lista de pedidos
+     */
+    public List<Pedido> getPedidosOriginales() {
+        return this.pedidosOriginales;
+    }
+
+    /**
+     * Obtiene la lista de pedidos procesados (potencialmente unitizados)
+     * @return Lista de pedidos
+     */
+    public List<Pedido> getPedidos() {
+        return this.pedidos;
+    }
+
+    /**
+     * Obtiene los pedidos que no fueron asignados en la solución
+     * @return Lista de pedidos no asignados
+     */
+    public ArrayList<Pedido> getPedidosNoAsignados() {
+        HashMap<Pedido, ArrayList<Vuelo>> solucion = getMejorSolucion();
+        ArrayList<Pedido> noAsignados = new ArrayList<>();
+        
+        for (Pedido pedido : this.pedidos) {
+            if (!solucion.containsKey(pedido)) {
+                noAsignados.add(pedido);
+            }
+        }
+        
+        return noAsignados;
     }
     //METODO PARA AGREGAR AEROPUERTOS ORIGEN
     private void asignarAeropuertosOrigen(){

@@ -26,7 +26,9 @@ public class SimulationState {
      * ID de la simulación (referencia a SimulacionSemanal en BD)
      */
     private Long simulationId;
-    
+
+    private SimulationMode mode;
+
     /**
      * Timestamp real cuando se inició la visualización (en milisegundos)
      * Se usa para calcular cuánto tiempo real ha transcurrido

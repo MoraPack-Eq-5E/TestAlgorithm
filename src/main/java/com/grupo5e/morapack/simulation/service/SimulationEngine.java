@@ -5,6 +5,7 @@ import com.grupo5e.morapack.core.model.*;
 import com.grupo5e.morapack.repository.SimulacionAsignacionRepository;
 import com.grupo5e.morapack.repository.SimulacionSemanalRepository;
 import com.grupo5e.morapack.service.AeropuertoService;
+import com.grupo5e.morapack.simulation.dto.OperationalOrderDTO;
 import com.grupo5e.morapack.simulation.model.*;
 import com.grupo5e.morapack.utils.BezierCurveUtils;
 import com.grupo5e.morapack.utils.CoordenadasUtils;
@@ -640,5 +641,125 @@ public class SimulationEngine {
             log.info("🧹 Limpiadas {} simulaciones antiguas", toRemove.size());
         }
     }
+
+    public Long startOperationalSimulation(Integer timeScale) {
+        long newId = System.currentTimeMillis(); // rápido, suficiente para la práctica
+
+        SimulationState state = SimulationState.builder()
+                .simulationId(newId)
+                .realStartTimeMillis(System.currentTimeMillis())
+                .simulatedStartTime(LocalDateTime.now())  // T0 = ahora
+                .timeScale(timeScale != null ? timeScale : DEFAULT_TIME_SCALE)
+                .simulationDurationDays(1)                // sólo 1 día
+                .status(SimulationStatus.RUNNING)
+                .mode(SimulationMode.OPERATIONAL)
+                .flights(new ArrayList<>())
+                .warehouses(buildWarehouseSnapshots())    // puedes reusar lo que ya tenías
+                .metrics(new SimulationMetrics())
+                .build();
+
+        // evento inicial
+        state.addEvent(SimulationEvent.builder()
+                .id(UUID.randomUUID().toString())
+                .type(EventType.INFO)
+                .message("Simulación operacional iniciada")
+                .simulatedTime(state.getSimulatedStartTime())
+                .realTime(LocalDateTime.now())
+                .build());
+
+        activeSimulations.put(newId, state);
+        log.info("✅ Simulación operacional {} iniciada", newId);
+        return newId;
+    }
+
+    public void ingestOrder(Long simulationId, OperationalOrderDTO order) {
+        SimulationState state = activeSimulations.get(simulationId);
+        if (state == null) {
+            throw new RuntimeException("Simulación no activa: " + simulationId);
+        }
+
+        // 1. buscar coords del origen y destino (ya tienes cache)
+        double[] originCoords = coordinatesCache.get(order.getAeropuertoOrigen());
+        double[] destCoords = coordinatesCache.get(order.getAeropuertoDestino());
+        if (originCoords == null || destCoords == null) {
+            throw new RuntimeException("Aeropuerto no encontrado en cache");
+        }
+
+        LocalDateTime nowSim = state.getCurrentSimulatedTime();
+        LocalDateTime departure = nowSim.plusMinutes(1);     // despega en 1 min simulado
+        LocalDateTime arrival = departure.plusMinutes(120);  // dura 2h
+
+        int flightId = state.getFlights().size() + 1;        // simple
+        String flightCode = "OP-" + flightId;
+
+        FlightSnapshot flight = FlightSnapshot.builder()
+                .flightId(flightId)
+                .flightCode(flightCode)
+                .originLat(originCoords[1])
+                .originLng(originCoords[0])
+                .destinationLat(destCoords[1])
+                .destinationLng(destCoords[0])
+                .currentLat(originCoords[1])
+                .currentLng(originCoords[0])
+                .departureTime(departure)
+                .arrivalTime(arrival)
+                .status(FlightStatus.SCHEDULED)
+                .progress(0.0)
+                .progressPercentage(0.0)
+                .packagesOnBoard(List.of())   // la metemos abajo
+                .capacityMax(200)             // puedes sacar esto de config
+                .capacityUsed(order.getCantidadProductos() != null ? order.getCantidadProductos() : 1)
+                .occupancyPercentage(0.0)     // se recalcula
+                .originCode(order.getAeropuertoOrigen())
+                .destinationCode(order.getAeropuertoDestino())
+                .originCity(order.getAeropuertoOrigen())
+                .destinationCity(order.getAeropuertoDestino())
+                .durationMinutes(120)
+                .build();
+
+        // meter el pedido como “paquete”
+        flight.setPackagesOnBoard(
+                List.of(
+                        // usa el codigo si vino, si no un random
+                        order.getCodigo() != null
+                                ? Long.parseLong(order.getCodigo().replaceAll("\\D","1"))
+                                : (long) (System.nanoTime() % 1_000_000)
+                )
+        );
+
+        // recalcular ocupación
+        flight.setOccupancyPercentage(
+                flight.getCapacityMax() > 0
+                        ? (flight.getCapacityUsed() * 100.0) / flight.getCapacityMax()
+                        : 0.0
+        );
+
+        state.getFlights().add(flight);
+
+        // evento bonito
+        state.addEvent(SimulationEvent.builder()
+                .id(UUID.randomUUID().toString())
+                .type(EventType.INFO)
+                .message("Pedido recibido: " + order.getAeropuertoOrigen() + " → " + order.getAeropuertoDestino())
+                .simulatedTime(nowSim)
+                .realTime(LocalDateTime.now())
+                .build());
+
+        // actualizar métricas reutilizando tu método
+        updateMetrics(state);
+
+        log.info("🆕 Pedido inyectado en sim {}: {} → {}", simulationId,
+                order.getAeropuertoOrigen(), order.getAeropuertoDestino());
+    }
+
+    public int ingestOrders(Long simulationId, List<OperationalOrderDTO> orders) {
+        int c = 0;
+        for (OperationalOrderDTO o : orders) {
+            ingestOrder(simulationId, o);
+            c++;
+        }
+        return c;
+    }
+
 }
 

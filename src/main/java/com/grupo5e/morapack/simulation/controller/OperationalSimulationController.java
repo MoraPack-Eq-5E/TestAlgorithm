@@ -23,7 +23,7 @@ public class OperationalSimulationController {
     public ResponseEntity<Map<String, Object>> startOperational(
             @RequestParam(name = "timeScale", defaultValue = "120") int timeScale
     ) {
-        Long simulationId = simulationEngine.startOperationalSimulation(timeScale, null);
+        Long simulationId = simulationEngine.startOperationalSimulation(timeScale);
         Map<String, Object> res = new HashMap<>();
         res.put("simulationId", simulationId);
         res.put("message", "Simulación operacional creada");
